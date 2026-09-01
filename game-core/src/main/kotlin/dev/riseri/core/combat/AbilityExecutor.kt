@@ -1,6 +1,7 @@
 package dev.riseri.core.combat
 
 enum class InvalidActionReason {
+    WRONG_PHASE,
     ACTOR_DEFEATED,
     TARGET_NOT_FOUND,
     INVALID_TARGET,
@@ -19,6 +20,9 @@ object AbilityExecutor {
         state: CombatState,
         action: GameAction.UseAbility,
     ): ActionResult {
+        if (state.phase != CombatPhase.PLAYER) {
+            throw InvalidActionException(InvalidActionReason.WRONG_PHASE)
+        }
         if (state.player.currentHp.value == 0) {
             throw InvalidActionException(InvalidActionReason.ACTOR_DEFEATED)
         }
@@ -50,7 +54,7 @@ object AbilityExecutor {
         val updatedEnemies = state.enemies.map { if (it.entityId == target.entityId) updatedTarget else it }
 
         return ActionResult(
-            state = state.copy(enemies = updatedEnemies),
+            state = state.copy(enemies = updatedEnemies, phase = CombatPhase.ENEMY),
             events =
                 listOf(
                     GameEvent.AbilityUsed(
@@ -85,7 +89,7 @@ object AbilityExecutor {
             state.player.copy(block = Block(state.player.block.value + GUARD_BLOCK))
 
         return ActionResult(
-            state = state.copy(player = updatedPlayer),
+            state = state.copy(player = updatedPlayer, phase = CombatPhase.ENEMY),
             events =
                 listOf(
                     GameEvent.AbilityUsed(

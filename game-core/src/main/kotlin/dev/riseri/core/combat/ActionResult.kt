@@ -22,4 +22,20 @@ sealed interface GameEvent {
         val entityId: EntityId,
         val amount: Int,
     ) : GameEvent
+
+    data class EnemyIntentionGenerated(
+        val enemyId: EntityId,
+        val intention: EnemyIntention,
+    ) : GameEvent
+
+    data class EnemyActionUsed(
+        val enemyId: EntityId,
+        val intentionId: IntentionId,
+        val targetId: EntityId,
+    ) : GameEvent
+
+    data class BlockAbsorbed(
+        val entityId: EntityId,
+        val amount: Int,
+    ) : GameEvent
 }

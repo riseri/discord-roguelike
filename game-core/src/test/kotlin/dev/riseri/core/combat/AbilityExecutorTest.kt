@@ -137,6 +137,19 @@ class AbilityExecutorTest {
     }
 
     @Test
+    fun `rejects ability use outside the player phase`() {
+        val exception =
+            assertFailsWith<InvalidActionException> {
+                AbilityExecutor.execute(
+                    combatState().copy(phase = CombatPhase.ENEMY),
+                    GameAction.UseAbility(AbilityId.GUARD, EntityId("knight")),
+                )
+            }
+
+        assertEquals(InvalidActionReason.WRONG_PHASE, exception.reason)
+    }
+
+    @Test
     fun `combat state rejects duplicate entity identifiers`() {
         assertFailsWith<IllegalArgumentException> {
             CombatState(
@@ -173,6 +186,6 @@ class AbilityExecutorTest {
         enemyContentId = EnemyContentId("goblin"),
         currentHp = HitPoints(currentHp),
         maxHp = HitPoints(40),
-        currentIntentionId = IntentionId("stab"),
+        currentIntention = EnemyIntention(IntentionId("stab"), damage = 10),
     )
 }

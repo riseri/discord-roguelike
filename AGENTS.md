@@ -173,3 +173,21 @@ Do not manually modify:
 - `docs/PROGRESS.md`
 
 These files are generated from GitHub project state.
+
+## Branch Naming
+
+Do not use `codex` as a branch name or branch prefix.
+
+Use:
+
+- `feature/<issue-number>-<short-description>` for feature work
+- `bugfix/<issue-number>-<short-description>` for bug fixes
+- `chore/<issue-number>-<short-description>` for maintenance or tooling
+- `docs/<issue-number>-<short-description>` for documentation-only work
+
+Examples:
+
+    feature/2-enemy-combat-state
+    bugfix/24-block-damage-calculation
+    chore/30-update-ci
+    docs/31-update-combat-rules

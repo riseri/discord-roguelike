@@ -42,7 +42,7 @@ class PlayableEncounterIntegrationTest {
         assertEquals(100, combat.path("player").path("currentHp").asInt())
         assertEquals("PLAYER", combat.path("phase").stringValue())
         assertEquals("ACTIVE", combat.path("status").stringValue())
-        assertEquals(2, combat.path("enemies").size())
+        assertEquals(1, combat.path("enemies").size())
         combat.path("enemies").forEach { enemy ->
             assertEquals("goblin", enemy.path("contentId").stringValue())
             assertEquals(40, enemy.path("currentHp").asInt())
@@ -53,12 +53,9 @@ class PlayableEncounterIntegrationTest {
 
         val expectedRounds =
             listOf(
-                ExpectedRound(playerHp = 80, enemyHp = listOf(25, 40), status = "ACTIVE"),
-                ExpectedRound(playerHp = 60, enemyHp = listOf(10, 40), status = "ACTIVE"),
-                ExpectedRound(playerHp = 50, enemyHp = listOf(0, 40), status = "ACTIVE"),
-                ExpectedRound(playerHp = 40, enemyHp = listOf(0, 25), status = "ACTIVE"),
-                ExpectedRound(playerHp = 30, enemyHp = listOf(0, 10), status = "ACTIVE"),
-                ExpectedRound(playerHp = 30, enemyHp = listOf(0, 0), status = "WON"),
+                ExpectedRound(playerHp = 90, enemyHp = listOf(25), status = "ACTIVE"),
+                ExpectedRound(playerHp = 80, enemyHp = listOf(10), status = "ACTIVE"),
+                ExpectedRound(playerHp = 80, enemyHp = listOf(0), status = "WON"),
             )
 
         expectedRounds.forEach { expected ->

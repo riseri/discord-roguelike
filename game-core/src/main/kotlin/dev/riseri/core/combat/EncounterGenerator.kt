@@ -18,8 +18,26 @@ data class EncounterGenerationResult(
 
 object EncounterGenerator {
     private const val ENEMIES_PER_ENCOUNTER = 2
+    private val STARTER_ENEMY_CONTENT_ID = EnemyContentId("goblin")
 
-    /** Generates the fixed-size normal encounter used by the M1 playable combat room. */
+    /** Creates the single-Goblin baseline encounter used to start the M1 playable combat. */
+    fun generateStarter(
+        enemyDefinitions: Collection<EnemyDefinition>,
+        rngState: CombatRngState,
+    ): EncounterGenerationResult {
+        val goblin =
+            enemyDefinitions.singleOrNull { it.id == STARTER_ENEMY_CONTENT_ID }
+                ?: throw IllegalArgumentException("Starter encounter requires the goblin enemy definition")
+
+        return EncounterGenerationResult(
+            encounter = CombatEncounter(listOf(goblin.createCombatState(EntityId("goblin-1")))),
+            // The fixed starter composition makes no random selection. Preserving the state keeps
+            // subsequent intention generation reproducible from the run's original seed.
+            nextRngState = rngState,
+        )
+    }
+
+    /** Generates a fixed-size normal encounter while retaining multi-enemy encounter support. */
     fun generate(
         enemyDefinitions: Collection<EnemyDefinition>,
         rngState: CombatRngState,

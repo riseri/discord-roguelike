@@ -5,6 +5,7 @@ import dev.riseri.core.combat.EnemyDefinition
 import dev.riseri.core.combat.EnemyIntention
 import dev.riseri.core.combat.HitPoints
 import dev.riseri.core.combat.IntentionId
+import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.io.InputStream
@@ -18,6 +19,7 @@ class EnemyDataLoadException(
  * Owns serialization and resource access so file formats never leak into the authoritative core.
  * The JSON tree is validated field by field to report the content location of malformed data.
  */
+@Component
 class EnemyDataLoader(
     private val objectMapper: ObjectMapper = ObjectMapper(),
 ) {

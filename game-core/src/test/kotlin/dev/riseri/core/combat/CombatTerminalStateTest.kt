@@ -67,6 +67,7 @@ class CombatTerminalStateTest {
                         ),
                     phase = CombatPhase.ENEMY,
                 ),
+                definitions,
             )
 
         assertEquals(HitPoints(0), result.state.player.currentHp)
@@ -101,6 +102,7 @@ class CombatTerminalStateTest {
                         ),
                     phase = CombatPhase.ENEMY,
                 ),
+                definitions,
             )
 
         assertEquals(
@@ -114,7 +116,7 @@ class CombatTerminalStateTest {
             result.state.enemies[1].currentIntention,
         )
         assertFailsWith<IllegalArgumentException> {
-            EnemyTurnExecutor.execute(result.state)
+            EnemyTurnExecutor.execute(result.state, definitions)
         }
 
         val exception =
@@ -156,4 +158,18 @@ class CombatTerminalStateTest {
         maxHp = HitPoints(maxHp),
         currentIntention = intention,
     )
+
+    private val definitions =
+        listOf(
+            EnemyDefinition(
+                EnemyContentId("goblin"),
+                HitPoints(40),
+                listOf(EnemyIntention(IntentionId("stab"), damage = 10)),
+            ),
+            EnemyDefinition(
+                EnemyContentId("goblin-brute"),
+                HitPoints(70),
+                listOf(EnemyIntention(IntentionId("crushing-blow"), damage = 120)),
+            ),
+        ).associateBy { it.id }
 }

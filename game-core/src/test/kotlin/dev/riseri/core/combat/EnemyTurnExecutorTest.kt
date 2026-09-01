@@ -7,8 +7,8 @@ import kotlin.test.assertTrue
 class EnemyTurnExecutorTest {
     @Test
     fun `fixed seed generates deterministic enemy intentions`() {
-        val first = EnemyTurnExecutor.generateIntentions(state(seed = 1_234, intention = null))
-        val second = EnemyTurnExecutor.generateIntentions(state(seed = 1_234, intention = null))
+        val first = EnemyTurnExecutor.generateIntentions(state(seed = 1_234, intention = null), definitions)
+        val second = EnemyTurnExecutor.generateIntentions(state(seed = 1_234, intention = null), definitions)
 
         assertEquals(first, second)
         assertTrue(
@@ -24,7 +24,7 @@ class EnemyTurnExecutorTest {
         val intention = EnemyIntention(IntentionId("heavy-swing"), damage = 20)
         val state = state(seed = 99, intention = intention)
 
-        val result = EnemyTurnExecutor.generateIntentions(state)
+        val result = EnemyTurnExecutor.generateIntentions(state, definitions)
 
         assertEquals(
             intention,
@@ -44,6 +44,7 @@ class EnemyTurnExecutorTest {
                     playerBlock = 12,
                     intention = EnemyIntention(IntentionId("punch"), damage = 8),
                 ),
+                definitions,
             )
 
         assertEquals(HitPoints(100), result.state.player.currentHp)
@@ -68,6 +69,7 @@ class EnemyTurnExecutorTest {
                     playerBlock = 12,
                     intention = EnemyIntention(IntentionId("heavy-swing"), damage = 20),
                 ),
+                definitions,
             )
 
         assertEquals(Block(0), result.state.player.block)
@@ -106,7 +108,7 @@ class EnemyTurnExecutorTest {
                 rngState = CombatRngState(42),
             )
 
-        val result = EnemyTurnExecutor.execute(state)
+        val result = EnemyTurnExecutor.execute(state, definitions)
 
         assertEquals(HitPoints(82), result.state.player.currentHp)
         assertEquals(
@@ -148,4 +150,21 @@ class EnemyTurnExecutorTest {
         maxHp = HitPoints(70),
         currentIntention = intention,
     )
+
+    private val definitions =
+        listOf(
+            EnemyDefinition(
+                EnemyContentId("goblin"),
+                HitPoints(40),
+                listOf(EnemyIntention(IntentionId("stab"), damage = 10)),
+            ),
+            EnemyDefinition(
+                EnemyContentId("goblin-brute"),
+                HitPoints(70),
+                listOf(
+                    EnemyIntention(IntentionId("punch"), damage = 8),
+                    EnemyIntention(IntentionId("heavy-swing"), damage = 20),
+                ),
+            ),
+        ).associateBy { it.id }
 }

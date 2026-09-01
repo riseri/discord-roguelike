@@ -1,0 +1,19 @@
+{
+  "enemies": [
+    {
+      "id": "goblin",
+      "hp": 40,
+      "intentions": [
+        { "id": "stab", "damage": 10 }
+      ]
+    },
+    {
+      "id": "goblin-brute",
+      "hp": 70,
+      "intentions": [
+        { "id": "punch", "damage": 8 },
+        { "id": "heavy-swing", "damage": 20 }
+      ]
+    }
+  ]
+}

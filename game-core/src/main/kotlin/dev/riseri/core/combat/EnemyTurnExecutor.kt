@@ -1,25 +1,10 @@
 package dev.riseri.core.combat
 
 object EnemyTurnExecutor {
-    private val intentionsByEnemy =
-        mapOf(
-            EnemyContentId("goblin") to
-                listOf(
-                    EnemyIntention(IntentionId("stab"), damage = 10),
-                ),
-            EnemyContentId("goblin-brute") to
-                listOf(
-                    EnemyIntention(IntentionId("punch"), damage = 8),
-                    EnemyIntention(IntentionId("heavy-swing"), damage = 20),
-                ),
-            EnemyContentId("orc-warlord") to
-                listOf(
-                    EnemyIntention(IntentionId("slash"), damage = 12),
-                    EnemyIntention(IntentionId("crushing-blow"), damage = 30),
-                ),
-        )
-
-    fun generateIntentions(state: CombatState): ActionResult {
+    fun generateIntentions(
+        state: CombatState,
+        enemyDefinitions: Map<EnemyContentId, EnemyDefinition>,
+    ): ActionResult {
         require(state.status == CombatStatus.ACTIVE) { "Cannot generate intentions for ended combat" }
 
         var rngState = state.rngState
@@ -30,8 +15,8 @@ object EnemyTurnExecutor {
                     enemy
                 } else {
                     val availableIntentions =
-                        intentionsByEnemy[enemy.enemyContentId]
-                            ?: error("No intentions defined for ${enemy.enemyContentId.value}")
+                        enemyDefinitions[enemy.enemyContentId]?.intentions
+                            ?: error("No enemy definition found for ${enemy.enemyContentId.value}")
                     val random = rngState.nextInt(availableIntentions.size)
                     rngState = random.nextState
                     val intention = availableIntentions[random.value]
@@ -46,7 +31,10 @@ object EnemyTurnExecutor {
         )
     }
 
-    fun execute(state: CombatState): ActionResult {
+    fun execute(
+        state: CombatState,
+        enemyDefinitions: Map<EnemyContentId, EnemyDefinition>,
+    ): ActionResult {
         require(state.status == CombatStatus.ACTIVE) { "Cannot execute turns for ended combat" }
         require(state.phase == CombatPhase.ENEMY) { "Enemy turns require the enemy phase" }
 
@@ -97,7 +85,7 @@ object EnemyTurnExecutor {
                 enemies = resolvedEnemies,
                 phase = CombatPhase.PLAYER,
             )
-        val generated = generateIntentions(afterResolution)
+        val generated = generateIntentions(afterResolution, enemyDefinitions)
 
         return ActionResult(
             state = generated.state,

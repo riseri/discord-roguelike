@@ -27,6 +27,29 @@ data class EnemyIntention(
     }
 }
 
+data class EnemyDefinition(
+    val id: EnemyContentId,
+    val maxHp: HitPoints,
+    val intentions: List<EnemyIntention>,
+) {
+    init {
+        require(maxHp.value > 0) { "Enemy maximum hit points must be positive" }
+        require(intentions.isNotEmpty()) { "Enemy must define at least one intention" }
+        require(intentions.map { it.id }.distinct().size == intentions.size) {
+            "Enemy intention identifiers must be unique"
+        }
+    }
+
+    fun createCombatState(entityId: EntityId) =
+        EnemyCombatState(
+            entityId = entityId,
+            enemyContentId = id,
+            currentHp = maxHp,
+            maxHp = maxHp,
+            currentIntention = null,
+        )
+}
+
 data class EnemyCombatState(
     val entityId: EntityId,
     val enemyContentId: EnemyContentId,

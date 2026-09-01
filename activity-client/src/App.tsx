@@ -27,23 +27,21 @@ interface EnemyState {
 interface CombatState {
   player: PlayerState
   enemies: EnemyState[]
+  abilities: Ability[]
   phase: 'PLAYER' | 'ENEMY'
   status: CombatStatus
+}
+
+interface Ability {
+  id: AbilityId
+  name: string
+  description: string
+  target: 'ENEMY' | 'SELF'
 }
 
 interface ApiError {
   message?: string
 }
-
-const abilities: ReadonlyArray<{
-  id: AbilityId
-  name: string
-  description: string
-  target: 'enemy' | 'self'
-}> = [
-  { id: 'SLASH', name: 'Slash', description: 'Strike one enemy.', target: 'enemy' },
-  { id: 'GUARD', name: 'Guard', description: 'Brace behind your shield.', target: 'self' },
-]
 
 function displayName(identifier: string) {
   return identifier
@@ -94,8 +92,8 @@ function App() {
   const useAbility = async () => {
     if (!combat) return
 
-    const ability = abilities.find(({ id }) => id === selectedAbility)
-    const targetId = ability?.target === 'self' ? combat.player.entityId : selectedTarget
+    const ability = combat.abilities.find(({ id }) => id === selectedAbility)
+    const targetId = ability?.target === 'SELF' ? combat.player.entityId : selectedTarget
     if (!targetId) {
       setError('Select an enemy target first.')
       return
@@ -142,9 +140,9 @@ function App() {
     )
   }
 
-  const selectedAbilityDetails = abilities.find(({ id }) => id === selectedAbility)
+  const selectedAbilityDetails = combat.abilities.find(({ id }) => id === selectedAbility)
   const canAct = combat.status === 'ACTIVE' && combat.phase === 'PLAYER' && !pending
-  const hasTarget = selectedAbilityDetails?.target === 'self' || selectedTarget !== null
+  const hasTarget = selectedAbilityDetails?.target === 'SELF' || selectedTarget !== null
 
   return (
     <main className="combat-shell">
@@ -238,7 +236,7 @@ function App() {
             <h2 id="ability-heading">Knight abilities</h2>
           </div>
           <div className="ability-list">
-            {abilities.map((ability) => (
+            {combat.abilities.map((ability) => (
               <button
                 className={`ability-button${selectedAbility === ability.id ? ' ability-button--selected' : ''}`}
                 type="button"

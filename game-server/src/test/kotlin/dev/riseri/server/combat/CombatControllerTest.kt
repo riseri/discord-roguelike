@@ -41,6 +41,13 @@ class CombatControllerTest {
             .andExpect(jsonPath("$.enemies", hasSize<Any>(1)))
             .andExpect(jsonPath("$.enemies[0].contentId").value("goblin"))
             .andExpect(jsonPath("$.enemies[0].intention.id").isString)
+            .andExpect(jsonPath("$.abilities", hasSize<Any>(2)))
+            .andExpect(jsonPath("$.abilities[0].id").value("SLASH"))
+            .andExpect(jsonPath("$.abilities[0].description").value("Deal 15 damage to one enemy."))
+            .andExpect(jsonPath("$.abilities[0].target").value("ENEMY"))
+            .andExpect(jsonPath("$.abilities[1].id").value("GUARD"))
+            .andExpect(jsonPath("$.abilities[1].description").value("Gain 12 Block."))
+            .andExpect(jsonPath("$.abilities[1].target").value("SELF"))
             .andExpect(jsonPath("$.status").value("ACTIVE"))
 
         mockMvc

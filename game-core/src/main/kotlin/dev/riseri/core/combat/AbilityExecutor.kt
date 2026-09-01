@@ -14,9 +14,6 @@ class InvalidActionException(
 ) : IllegalArgumentException(reason.name)
 
 object AbilityExecutor {
-    private const val SLASH_DAMAGE = 15
-    private const val GUARD_BLOCK = 12
-
     fun execute(
         state: CombatState,
         action: GameAction.UseAbility,
@@ -55,7 +52,7 @@ object AbilityExecutor {
             throw InvalidActionException(InvalidActionReason.TARGET_DEFEATED)
         }
 
-        val damageDealt = minOf(SLASH_DAMAGE, target.currentHp.value)
+        val damageDealt = minOf(KnightAbilityValues.SLASH_DAMAGE, target.currentHp.value)
         val updatedTarget = target.copy(currentHp = HitPoints(target.currentHp.value - damageDealt))
         val updatedEnemies = state.enemies.map { if (it.entityId == target.entityId) updatedTarget else it }
         val enemyDefeated = updatedTarget.currentHp.value == 0
@@ -116,7 +113,7 @@ object AbilityExecutor {
         }
 
         val updatedPlayer =
-            state.player.copy(block = Block(state.player.block.value + GUARD_BLOCK))
+            state.player.copy(block = Block(state.player.block.value + KnightAbilityValues.GUARD_BLOCK))
 
         return ActionResult(
             state = state.copy(player = updatedPlayer, phase = CombatPhase.ENEMY),
@@ -129,7 +126,7 @@ object AbilityExecutor {
                     ),
                     GameEvent.BlockGained(
                         entityId = state.player.entityId,
-                        amount = GUARD_BLOCK,
+                        amount = KnightAbilityValues.GUARD_BLOCK,
                     ),
                 ),
         )

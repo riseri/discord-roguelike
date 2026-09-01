@@ -205,27 +205,26 @@ Do not design infrastructure for hypothetical future features.
 
 ## Code Comments
 
-Add comments when they improve understanding of non-obvious behavior, constraints, or design decisions.
+Add comments for non-obvious behavior, constraints, design decisions, and domain rules.
 
-Comments should explain why code exists or why a particular approach is required rather than simply restating what the code does.
+For new non-trivial classes and functions, include a brief comment when the purpose or responsibility is not immediately obvious from the name alone.
 
-Add or preserve comments for:
+When implementing gameplay logic, prefer documenting:
 
-- non-obvious game rules
-- determinism or RNG requirements
-- important architectural boundaries
-- edge cases that are easy to misunderstand
-- workarounds or unusual implementation choices
-- public APIs or domain concepts whose intent is not obvious
-- complex algorithms or state transitions
+- why a rule exists
+- when a state transition occurs
+- invariants that must remain true
+- determinism or RNG constraints
+- edge cases
+- ordering requirements
+- architectural boundaries
+- behavior that would be easy for a future maintainer to accidentally change
 
-When modifying existing code, add a comment if the surrounding logic is difficult to understand without additional context.
+When modifying existing non-trivial logic that has no explanation, add a comment if future maintainers would benefit from understanding the intent.
 
-Do not add comments for obvious code.
+Do not add comments that merely restate the code.
 
-Prefer clear naming and small functions over unnecessary explanatory comments.
-
-Update or remove comments when code changes make them inaccurate.
+Prefer clear naming and small functions, but use comments when naming alone does not explain intent.
 
 ## Testing
 

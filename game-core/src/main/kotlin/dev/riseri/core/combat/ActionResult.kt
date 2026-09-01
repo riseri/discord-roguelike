@@ -38,4 +38,12 @@ sealed interface GameEvent {
         val entityId: EntityId,
         val amount: Int,
     ) : GameEvent
+
+    data class EntityDefeated(
+        val entityId: EntityId,
+    ) : GameEvent
+
+    data object CombatWon : GameEvent
+
+    data object CombatLost : GameEvent
 }

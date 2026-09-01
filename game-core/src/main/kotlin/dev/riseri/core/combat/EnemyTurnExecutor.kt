@@ -20,6 +20,8 @@ object EnemyTurnExecutor {
         )
 
     fun generateIntentions(state: CombatState): ActionResult {
+        require(state.status == CombatStatus.ACTIVE) { "Cannot generate intentions for ended combat" }
+
         var rngState = state.rngState
         val events = mutableListOf<GameEvent>()
         val enemies =
@@ -45,6 +47,7 @@ object EnemyTurnExecutor {
     }
 
     fun execute(state: CombatState): ActionResult {
+        require(state.status == CombatStatus.ACTIVE) { "Cannot execute turns for ended combat" }
         require(state.phase == CombatPhase.ENEMY) { "Enemy turns require the enemy phase" }
 
         var player = state.player
@@ -53,7 +56,9 @@ object EnemyTurnExecutor {
         val resolvedEnemies =
             state.enemies.map { enemy ->
                 val intention = enemy.currentIntention
-                if (enemy.currentHp.value == 0 || intention == null) {
+                // Once the player is defeated, later enemies must keep their unresolved intentions
+                // rather than continuing to act against an already terminal combat.
+                if (player.currentHp.value == 0 || enemy.currentHp.value == 0 || intention == null) {
                     enemy
                 } else {
                     events +=
@@ -68,6 +73,23 @@ object EnemyTurnExecutor {
                     enemy.copy(currentIntention = null)
                 }
             }
+
+        if (player.currentHp.value == 0) {
+            return ActionResult(
+                state =
+                    state.copy(
+                        player = player,
+                        enemies = resolvedEnemies,
+                        status = CombatStatus.LOST,
+                    ),
+                events =
+                    events +
+                        listOf(
+                            GameEvent.EntityDefeated(player.entityId),
+                            GameEvent.CombatLost,
+                        ),
+            )
+        }
 
         val afterResolution =
             state.copy(

@@ -1,6 +1,7 @@
 package dev.riseri.core.combat
 
 enum class InvalidActionReason {
+    COMBAT_ENDED,
     WRONG_PHASE,
     ACTOR_DEFEATED,
     TARGET_NOT_FOUND,
@@ -20,6 +21,9 @@ object AbilityExecutor {
         state: CombatState,
         action: GameAction.UseAbility,
     ): ActionResult {
+        if (state.status != CombatStatus.ACTIVE) {
+            throw InvalidActionException(InvalidActionReason.COMBAT_ENDED)
+        }
         if (state.phase != CombatPhase.PLAYER) {
             throw InvalidActionException(InvalidActionReason.WRONG_PHASE)
         }
@@ -52,22 +56,40 @@ object AbilityExecutor {
         val damageDealt = minOf(SLASH_DAMAGE, target.currentHp.value)
         val updatedTarget = target.copy(currentHp = HitPoints(target.currentHp.value - damageDealt))
         val updatedEnemies = state.enemies.map { if (it.entityId == target.entityId) updatedTarget else it }
-
-        return ActionResult(
-            state = state.copy(enemies = updatedEnemies, phase = CombatPhase.ENEMY),
-            events =
-                listOf(
+        val enemyDefeated = updatedTarget.currentHp.value == 0
+        val combatWon = enemyDefeated && updatedEnemies.all { it.currentHp.value == 0 }
+        val events =
+            buildList {
+                add(
                     GameEvent.AbilityUsed(
                         actorId = state.player.entityId,
                         abilityId = action.abilityId,
                         targetId = target.entityId,
                     ),
+                )
+                add(
                     GameEvent.DamageDealt(
                         sourceId = state.player.entityId,
                         targetId = target.entityId,
                         amount = damageDealt,
                     ),
+                )
+                if (enemyDefeated) {
+                    add(GameEvent.EntityDefeated(target.entityId))
+                }
+                if (combatWon) {
+                    add(GameEvent.CombatWon)
+                }
+            }
+
+        return ActionResult(
+            state =
+                state.copy(
+                    enemies = updatedEnemies,
+                    phase = if (combatWon) CombatPhase.PLAYER else CombatPhase.ENEMY,
+                    status = if (combatWon) CombatStatus.WON else CombatStatus.ACTIVE,
                 ),
+            events = events,
         )
     }
 

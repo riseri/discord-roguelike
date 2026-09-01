@@ -186,3 +186,16 @@ Do not modify documentation solely to make an implementation appear compliant.
 GitHub Issues and milestones are the authoritative project-status tracker.
 
 Do not maintain a parallel checkbox backlog in Markdown.
+
+## GitHub Task Setup
+
+When starting work on a GitHub Issue:
+
+1. Assign the issue to the current repository owner or developer when GitHub access allows it.
+2. Create the implementation branch using the repository branch naming rules.
+3. Associate the branch and eventual pull request with the GitHub Issue when supported.
+4. Ensure the pull request includes:
+
+       Closes #<ISSUE_NUMBER>
+
+Do not consider GitHub task setup a substitute for implementing the issue.

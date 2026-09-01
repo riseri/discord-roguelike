@@ -129,7 +129,6 @@ Detailed project documentation is available under `docs/`.
 - `docs/MVP.md` - MVP scope and core gameplay loop
 - `docs/ARCHITECTURE.md` - Module boundaries and architecture
 - `docs/COMBAT.md` - Combat design
-- `docs/BACKLOG.md` - Development backlog
 
 ## Development
 

@@ -48,7 +48,76 @@ A typical run follows this loop:
 - Node.js 24+
 - npm
 
-## Backend
+Gradle does not need to be installed separately. Use the Gradle wrapper included in the repository.
+
+## Running Locally
+
+The game currently runs as two local processes:
+
+1. the Spring Boot game server
+2. the Vite development server for the React client
+
+The Vite client proxies `/api` requests to the backend at `http://localhost:8080`.
+
+### 1. Clone the repository
+
+    git clone https://github.com/riseri/discord-roguelike.git
+    cd discord-roguelike
+
+### 2. Start the backend
+
+On macOS or Linux:
+
+    ./gradlew :game-server:bootRun
+
+On Windows PowerShell or Command Prompt:
+
+    .\gradlew.bat :game-server:bootRun
+
+The Spring Boot server starts on:
+
+    http://localhost:8080
+
+Leave this terminal running.
+
+### 3. Install frontend dependencies
+
+Open a second terminal from the repository root:
+
+    cd activity-client
+    npm install
+
+For repeatable installs after `package-lock.json` already exists, `npm ci` can be used instead.
+
+### 4. Start the frontend
+
+    npm run dev
+
+Vite will print the local development URL in the terminal. By default, it is typically:
+
+    http://localhost:5173
+
+Open that URL in a browser and select **Begin encounter** to play the current combat vertical slice.
+
+### Quick Start
+
+Terminal 1:
+
+    # macOS / Linux
+    ./gradlew :game-server:bootRun
+
+    # Windows
+    .\gradlew.bat :game-server:bootRun
+
+Terminal 2:
+
+    cd activity-client
+    npm install
+    npm run dev
+
+Then open the URL shown by Vite in your browser.
+
+## Backend Development
 
 Build:
 
@@ -66,7 +135,9 @@ Run the server:
 
     ./gradlew :game-server:bootRun
 
-## Frontend
+On Windows, replace `./gradlew` with `.\gradlew.bat`.
+
+## Frontend Development
 
     cd activity-client
     npm install
@@ -74,6 +145,27 @@ Run the server:
 
 Validation:
 
+    npm run lint
+    npm run build
+
+## Verify Your Local Setup
+
+Before starting development, verify both backend and frontend builds succeed.
+
+From the repository root:
+
+    ./gradlew test
+    ./gradlew spotlessCheck
+
+On Windows:
+
+    .\gradlew.bat test
+    .\gradlew.bat spotlessCheck
+
+Then:
+
+    cd activity-client
+    npm ci
     npm run lint
     npm run build
 
@@ -93,6 +185,6 @@ GitHub Issues define task-specific requirements and acceptance criteria.
 
 ## Status
 
-Project foundation is complete.
+The project foundation and M1 playable combat encounter are complete.
 
-Current focus: playable combat encounter.
+Current focus: expanding the playable encounter into the first roguelite run loop.

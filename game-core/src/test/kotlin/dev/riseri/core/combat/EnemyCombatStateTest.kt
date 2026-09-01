@@ -14,14 +14,17 @@ class EnemyCombatStateTest {
                 enemyContentId = EnemyContentId("goblin-brute"),
                 currentHp = HitPoints(70),
                 maxHp = HitPoints(70),
-                currentIntentionId = IntentionId("heavy-swing"),
+                currentIntention = EnemyIntention(IntentionId("heavy-swing"), damage = 20),
             )
 
         assertEquals(EntityId("goblin-brute-1"), state.entityId)
         assertEquals(EnemyContentId("goblin-brute"), state.enemyContentId)
         assertEquals(HitPoints(70), state.currentHp)
         assertEquals(HitPoints(70), state.maxHp)
-        assertEquals(IntentionId("heavy-swing"), state.currentIntentionId)
+        assertEquals(
+            EnemyIntention(IntentionId("heavy-swing"), damage = 20),
+            state.currentIntention,
+        )
     }
 
     @Test
@@ -32,10 +35,10 @@ class EnemyCombatStateTest {
                 enemyContentId = EnemyContentId("goblin"),
                 currentHp = HitPoints(40),
                 maxHp = HitPoints(40),
-                currentIntentionId = null,
+                currentIntention = null,
             )
 
-        assertNull(state.currentIntentionId)
+        assertNull(state.currentIntention)
     }
 
     @Test
@@ -47,14 +50,14 @@ class EnemyCombatStateTest {
                     enemyContentId = EnemyContentId("goblin"),
                     currentHp = HitPoints(40),
                     maxHp = HitPoints(40),
-                    currentIntentionId = IntentionId("stab"),
+                    currentIntention = EnemyIntention(IntentionId("stab"), damage = 10),
                 ),
                 EnemyCombatState(
                     entityId = EntityId("goblin-2"),
                     enemyContentId = EnemyContentId("goblin"),
                     currentHp = HitPoints(25),
                     maxHp = HitPoints(40),
-                    currentIntentionId = IntentionId("stab"),
+                    currentIntention = EnemyIntention(IntentionId("stab"), damage = 10),
                 ),
             )
 
@@ -70,7 +73,7 @@ class EnemyCombatStateTest {
                 enemyContentId = EnemyContentId("goblin"),
                 currentHp = HitPoints(0),
                 maxHp = HitPoints(40),
-                currentIntentionId = null,
+                currentIntention = null,
             )
 
         assertEquals(HitPoints(0), state.currentHp)
@@ -94,7 +97,7 @@ class EnemyCombatStateTest {
                 enemyContentId = EnemyContentId("goblin"),
                 currentHp = HitPoints(0),
                 maxHp = HitPoints(0),
-                currentIntentionId = null,
+                currentIntention = null,
             )
         }
     }
@@ -107,7 +110,7 @@ class EnemyCombatStateTest {
                 enemyContentId = EnemyContentId("goblin"),
                 currentHp = HitPoints(41),
                 maxHp = HitPoints(40),
-                currentIntentionId = null,
+                currentIntention = null,
             )
         }
     }

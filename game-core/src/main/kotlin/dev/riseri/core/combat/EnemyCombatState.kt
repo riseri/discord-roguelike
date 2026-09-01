@@ -18,12 +18,21 @@ value class IntentionId(
     }
 }
 
+data class EnemyIntention(
+    val id: IntentionId,
+    val damage: Int,
+) {
+    init {
+        require(damage >= 0) { "Intention damage must not be negative" }
+    }
+}
+
 data class EnemyCombatState(
     val entityId: EntityId,
     val enemyContentId: EnemyContentId,
     val currentHp: HitPoints,
     val maxHp: HitPoints,
-    val currentIntentionId: IntentionId?,
+    val currentIntention: EnemyIntention?,
 ) {
     init {
         require(maxHp.value > 0) { "Maximum hit points must be positive" }

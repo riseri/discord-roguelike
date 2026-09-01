@@ -12,27 +12,39 @@ The MVP uses:
 
 - One player character
 - One or more enemies
-- Player turn
-- Enemy turn
+- Player turns
+- Enemy turns
 - Telegraphable enemy intentions
 
 Real-time combat is out of scope.
+
+## Combat Terminology
+
+A `round` begins when control is given to the player and ends after enemy actions and end-of-round processing complete.
+
+A `player turn` is the portion of the round in which the player chooses and resolves an action.
+
+An `enemy turn` is the portion in which enemies resolve their previously generated intentions.
+
+An `intention` is the action an enemy has committed to performing during its next enemy turn.
+
+Once shown to the player, an intention must remain stable until it resolves or becomes invalid because combat has already ended.
+
+Use these terms consistently in implementation, tests, issues, and documentation.
 
 ## Player
 
 Initial class:
 
-Knight
+    Knight
 
 Initial stats:
 
-```text
-Max HP: 100
-HP: 100
-Block: 0
-```
+    Max HP: 100
+    HP: 100
+    Block: 0
 
-Additional stats such as critical-hit chance may be introduced as needed.
+Additional stats should only be introduced when required by actual gameplay mechanics.
 
 ## Knight Abilities
 
@@ -42,11 +54,9 @@ Basic attack.
 
 Initial behavior:
 
-```text
-Damage: 15
-Cooldown: none
-Target: one enemy
-```
+    Damage: 15
+    Cooldown: none
+    Target: one enemy
 
 ### Guard
 
@@ -54,11 +64,9 @@ Defensive action.
 
 Initial behavior:
 
-```text
-Gain: 12 Block
-Cooldown: none
-Target: self
-```
+    Gain: 12 Block
+    Cooldown: none
+    Target: self
 
 ### Shield Bash
 
@@ -66,12 +74,10 @@ Damage plus control.
 
 Initial behavior:
 
-```text
-Damage: 8
-Apply Stun: 1 turn
-Cooldown: 3 turns
-Target: one enemy
-```
+    Damage: 8
+    Apply Stun: 1 turn
+    Cooldown: 3 turns
+    Target: one enemy
 
 ### Execute
 
@@ -79,15 +85,13 @@ Conditional damage ability.
 
 Initial behavior:
 
-```text
-Base Damage: 20
+    Base Damage: 20
 
-If target HP is below 25%:
-Damage: 40
+    If target HP is below 25%:
+    Damage: 40
 
-Cooldown: TBD
-Target: one enemy
-```
+    Cooldown: TBD
+    Target: one enemy
 
 Exact balance values may change during testing.
 
@@ -97,17 +101,38 @@ The initial combat loop is:
 
 1. Enemy intentions are visible.
 2. Player selects an ability.
-3. Player action resolves.
-4. Resulting effects resolve.
-5. Enemy deaths are checked.
-6. If combat continues, enemies take their actions.
-7. Resulting effects resolve.
-8. Player death is checked.
-9. Turn-based statuses and cooldowns advance.
-10. New enemy intentions are generated.
-11. Control returns to the player.
+3. Validate the player action.
+4. Resolve the player action.
+5. Resolve resulting effects required by the current implementation.
+6. Check enemy deaths.
+7. Check combat victory.
+8. If combat continues, enemies resolve their intentions.
+9. Resolve resulting enemy effects.
+10. Check player death.
+11. If combat continues, advance statuses and cooldowns.
+12. Expire or update Block according to its rules.
+13. Generate new enemy intentions.
+14. Return control to the player.
 
-This order may be refined as mechanics become more complex.
+Do not continue normal combat resolution after combat has reached a terminal state.
+
+This order may be refined later when additional mechanics require it.
+
+## Action Resolution
+
+A submitted player action should resolve atomically from the perspective of callers.
+
+The caller should not manually perform individual combat steps such as:
+
+- applying damage
+- checking deaths
+- executing enemy actions
+- advancing statuses
+- generating new intentions
+
+The authoritative combat engine performs the required sequence and returns the resulting state and generated game events.
+
+Do not expose partially resolved combat state unless a future mechanic explicitly requires it.
 
 ## Block
 
@@ -115,46 +140,40 @@ Block absorbs incoming damage before HP.
 
 Example:
 
-```text
-Player HP: 100
-Player Block: 12
-Incoming Damage: 20
-```
+    Player HP: 100
+    Player Block: 12
+    Incoming Damage: 20
 
 Result:
 
-```text
-Block: 0
-HP: 92
-```
+    Block: 0
+    HP: 92
 
 Block is removed before HP damage is applied.
 
-For the MVP, remaining Block expires at the start of the player's next turn unless changed later.
+For the MVP, remaining Block expires at the start of the player's next turn unless explicitly changed later.
 
 ## Damage
 
 Initial damage pipeline:
 
-```text
-Base Damage
-    |
-    v
-Attacker Modifiers
-    |
-    v
-Defender Modifiers
-    |
-    v
-Block
-    |
-    v
-HP Damage
-```
+    Base Damage
+        |
+        v
+    Attacker Modifiers
+        |
+        v
+    Defender Modifiers
+        |
+        v
+    Block
+        |
+        v
+    HP Damage
 
 Avoid prematurely creating an overly generic modifier engine.
 
-The pipeline may evolve as additional mechanics are implemented.
+The pipeline may evolve as actual mechanics require it.
 
 ## Enemy Intentions
 
@@ -162,17 +181,17 @@ Enemies choose an action before the player makes their next decision.
 
 Example:
 
-```text
-Goblin Brute
+    Goblin Brute
 
-Intent:
-Heavy Swing
-20 damage
-```
+    Intent:
+    Heavy Swing
+    20 damage
 
 Once shown to the player, an intention must not randomly change before it resolves.
 
 This allows the player to make decisions based on enemy behavior.
+
+Intent generation must use deterministic seeded randomness when randomness is involved.
 
 ## Stun
 
@@ -180,39 +199,31 @@ A stunned entity skips its next action.
 
 Initial behavior:
 
-```text
-Stun duration: 1 turn
-```
+    Stun duration: 1 action
 
-When the affected entity attempts to act:
+When the affected entity would act:
 
 1. Skip the action.
 2. Reduce or remove Stun.
-3. Continue combat.
+3. Continue combat if combat remains active.
 
 ## Death
 
 An entity is defeated when:
 
-```text
-HP <= 0
-```
+    HP <= 0
 
-Externally exposed HP should be clamped to zero rather than represented as a negative value.
+Externally exposed HP must be clamped to zero rather than represented as a negative value.
 
 ## Combat Victory
 
 Combat ends successfully when all enemies are defeated.
 
-The result should generate a combat victory event.
+Victory should produce a meaningful game event such as:
 
-Example:
+    CombatWon
 
-```text
-CombatWon
-```
-
-The dungeon system can use that event to transition to rewards.
+The dungeon or run system can later use this event to transition to rewards.
 
 ## Combat Failure
 
@@ -220,30 +231,26 @@ The run ends when the player reaches zero HP.
 
 For the MVP there is no revive system.
 
-Multiplayer downed/revive mechanics are explicitly out of scope.
+Multiplayer downed or revive mechanics are explicitly out of scope.
 
 ## Initial Enemy Examples
 
 ### Goblin
 
-```text
-HP: 40
+    HP: 40
 
-Stab:
-10 damage
-```
+    Stab:
+    10 damage
 
 ### Goblin Brute
 
-```text
-HP: 70
+    HP: 70
 
-Punch:
-8 damage
+    Punch:
+    8 damage
 
-Heavy Swing:
-20 damage
-```
+    Heavy Swing:
+    20 damage
 
 Heavy Swing should be clearly telegraphed.
 
@@ -251,23 +258,19 @@ Heavy Swing should be clearly telegraphed.
 
 Initial boss.
 
-```text
-HP: 180
-```
+    HP: 180
 
 Actions:
 
-```text
-Slash
-12 damage
+    Slash
+    12 damage
 
-Crushing Blow
-30 damage
-Telegraphed
+    Crushing Blow
+    30 damage
+    Telegraphed
 
-War Cry
-Increase future damage
-```
+    War Cry
+    Increase future damage
 
 Exact boss behavior can be refined after normal combat works.
 
@@ -279,94 +282,76 @@ Initial examples:
 
 ### Bloodied Blade
 
-```text
-Critical hits apply Bleed.
-```
+    Critical hits apply Bleed.
 
 ### Serrated Edge
 
-```text
-Bleed deals 50% more damage.
-```
+    Bleed deals 50% more damage.
 
 ### Vampiric Fang
 
-```text
-Heal for a percentage of Bleed damage dealt.
-```
+    Heal for a percentage of Bleed damage dealt.
 
 ### Iron Bulwark
 
-```text
-Guard grants additional Block.
-```
+    Guard grants additional Block.
 
 ### Spiked Armor
 
-```text
-When Block absorbs damage, deal some damage back to the attacker.
-```
+    When Block absorbs damage, deal some damage back to the attacker.
 
 ### Executioner's Mark
 
-```text
-Increase Execute's bonus-damage threshold.
-```
+    Increase Execute's bonus-damage threshold.
 
 ### Berserker's Ring
 
-```text
-Increase damage while below a health threshold.
-```
+    Increase damage while below a health threshold.
 
 ### Heavy Gauntlets
 
-```text
-Increase Shield Bash damage.
-```
+    Increase Shield Bash damage.
 
 Exact values are subject to balancing.
 
 ## Relic Interaction Architecture
 
-Relics may react to combat events.
+Relics may react to meaningful combat events.
 
 Conceptually:
 
-```text
-Critical Hit
-     |
-     v
-CriticalHit event
-     |
-     v
-Bloodied Blade reacts
-     |
-     v
-Apply Bleed
-```
+    Critical Hit
+         |
+         v
+    CriticalHit event
+         |
+         v
+    Bloodied Blade reacts
+         |
+         v
+    Apply Bleed
 
-Avoid placing knowledge of every relic directly inside the combat engine.
+Avoid placing knowledge of every relic directly inside unrelated combat code.
 
-Prefer emitting meaningful game events that relic systems can react to.
+Prefer emitting meaningful domain events that appropriate systems can react to.
 
-Do not build a highly generic event/effect scripting engine during the MVP unless actual implementation needs justify it.
+Do not build a highly generic event or effect scripting engine during the MVP unless actual implementation requirements justify it.
 
 ## Determinism
 
 Combat must be deterministic given:
 
-- Starting GameState
+- Starting game state
 - Action sequence
 - RNG seed
 
-A bug should ideally be reproducible using the same seed and action sequence.
+A bug should ideally be reproducible using the same state, seed, and action sequence.
 
 ## Random Number Generation
 
 Game logic must not directly use unseeded global randomness.
 
-Random values should come from the run's deterministic RNG.
+Random values should come from deterministic seeded RNG.
 
 Potential uses include:
 
@@ -375,9 +360,23 @@ Potential uses include:
 - Reward generation
 - Event outcomes
 
+## Rule Precedence
+
+When multiple combat effects apply:
+
+1. Validate the action.
+2. Resolve the acting entity's ability.
+3. Apply resulting damage, Block, and statuses.
+4. Resolve required triggered effects.
+5. Check deaths.
+6. Check terminal combat state.
+7. Continue normal turn flow only if combat remains active.
+
+Do not create a universal proc-priority framework until actual mechanics require one.
+
 ## Testing Requirements
 
-At minimum, combat tests should cover:
+At minimum, combat tests should eventually cover:
 
 - Normal damage
 - Lethal damage
@@ -396,7 +395,9 @@ At minimum, combat tests should cover:
 - Enemy death
 - Combat victory
 
-Random tests must use fixed seeds.
+Randomized tests must use fixed seeds.
+
+Tests should be added incrementally as the corresponding mechanics are implemented.
 
 ## Current Priority
 

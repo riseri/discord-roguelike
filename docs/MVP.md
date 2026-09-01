@@ -34,7 +34,11 @@ Knight only.
 - Shield Bash
 - Execute
 
+Detailed combat behavior is defined in `COMBAT.md`.
+
 ### Enemies
+
+MVP target:
 
 - 4 normal enemies
 - 1 elite enemy
@@ -83,11 +87,48 @@ Gold can unlock additional relics or other content that becomes available in fut
 
 Persistent progression should primarily expand available content rather than provide large permanent stat bonuses.
 
+## Content Targets
+
+Numeric content counts in this document are MVP targets, not requirements for early milestones.
+
+Examples include:
+
+- 4 normal enemies
+- 1 elite
+- 1 boss
+- 8-10 relics
+- 3-5 events
+- 6-8 rooms
+
+Early milestones may use fewer content items while validating the underlying systems.
+
+Do not create placeholder content solely to reach these counts before the relevant system is ready.
+
+## Incremental Development
+
+The MVP describes the target vertical slice, not the scope of every implementation task.
+
+Work is implemented incrementally through GitHub Issues and milestones.
+
+An issue may intentionally implement only a small portion of the MVP.
+
+Do not implement later MVP systems early unless explicitly required by the current GitHub issue.
+
+For example, a combat-state issue should not also introduce:
+
+- relic systems
+- dungeon generation
+- persistence
+- progression
+- Discord integration
+
+The GitHub issue defines the current implementation scope.
+
 ## Target Run Length
 
 Initial development target:
 
-5-10 minutes.
+    5-10 minutes
 
 Run duration can increase later after the core loop has been validated.
 
@@ -104,7 +145,7 @@ The MVP is successful when a player can:
 - Unlock something
 - Start another run
 
-The core question is:
+The core product question is:
 
 > After finishing a run, does the player immediately want to start another one?
 
@@ -130,4 +171,4 @@ Do not implement the following as part of the MVP:
 - Complex equipment durability
 - Large-scale procedural terrain
 
-These systems may be added after the core single-player loop is proven.
+These systems may be considered only after the core single-player loop has been proven.

@@ -2,7 +2,7 @@
 
 A short-session turn-based roguelite designed to eventually run as a Discord Activity.
 
-The current goal is a single-player MVP that proves the core gameplay loop before adding larger systems such as multiplayer, guilds, or multiple classes.
+The current goal is a single-player MVP that proves the core gameplay loop before larger systems such as multiplayer, guilds, or multiple classes are introduced.
 
 ## MVP
 
@@ -16,20 +16,22 @@ The MVP includes:
 - A branching dungeon
 - One boss
 - Basic persistent progression
-- A React-based activity client
+- A React-based Activity client
 
 A typical run follows this loop:
 
-1. Start a Knight run
-2. Choose a room
-3. Fight enemies or resolve an event
-4. Receive a reward
-5. Improve the current build
-6. Continue through the dungeon
-7. Fight the boss
-8. Win or die
-9. Receive persistent rewards
-10. Start another run
+1. Start a Knight run.
+2. Choose a room.
+3. Fight enemies or resolve an event.
+4. Receive a reward.
+5. Improve the current build.
+6. Continue through the dungeon.
+7. Fight the boss.
+8. Win or die.
+9. Receive persistent rewards.
+10. Return to the hub.
+11. Unlock content for future runs.
+12. Start another run.
 
 ## Repository Structure
 
@@ -40,62 +42,15 @@ A typical run follows this loop:
     ├── game-data/        Static game content definitions
     └── docs/             Design and architecture documentation
 
-### game-core
-
-Contains deterministic game simulation such as:
-
-- Combat
-- Abilities
-- Enemies
-- Relic behavior
-- Dungeon state
-- Run state
-- Seeded randomness
-
-`game-core` must not depend on Spring, HTTP, persistence, Discord, React, or Phaser.
-
-### game-server
-
-Spring Boot backend responsible for:
-
-- APIs
-- Persistence
-- Authentication
-- Run lifecycle
-- Connecting the client to `game-core`
-
-### activity-client
-
-React + TypeScript frontend responsible for:
-
-- UI
-- Player input
-- Combat presentation
-- Route selection
-- Discord Activity integration
-
-The client does not contain authoritative game rules.
-
-### game-data
-
-Contains content definitions for:
-
-- Enemies
-- Abilities
-- Relics
-- Events
-
 ## Requirements
 
 - JDK 25
 - Node.js 24+
 - npm
 
-## Build and Test
+## Backend
 
-### Backend
-
-From the repository root:
+Build:
 
     ./gradlew build
 
@@ -107,7 +62,11 @@ Check formatting:
 
     ./gradlew spotlessCheck
 
-### Frontend
+Run the server:
+
+    ./gradlew :game-server:bootRun
+
+## Frontend
 
     cd activity-client
     npm install
@@ -118,26 +77,22 @@ Validation:
     npm run lint
     npm run build
 
-## Running the Server
-
-    ./gradlew :game-server:bootRun
-
 ## Documentation
 
-Detailed project documentation is available under `docs/`.
-
-- `docs/MVP.md` - MVP scope and core gameplay loop
-- `docs/ARCHITECTURE.md` - Module boundaries and architecture
-- `docs/COMBAT.md` - Combat design
+- `docs/MVP.md` - MVP scope and gameplay loop
+- `docs/ARCHITECTURE.md` - Architecture and module ownership
+- `docs/COMBAT.md` - Combat rules and mechanics
+- `docs/DEVELOPMENT.md` - Development workflow and sources of truth
+- `AGENTS.md` - Repository instructions for coding agents
 
 ## Development
 
-This project uses GitHub Issues and milestones to track implementation work.
+Implementation work is tracked through GitHub Issues and milestones.
 
-Repository-specific agent instructions are defined in `AGENTS.md`.
+GitHub Issues define task-specific requirements and acceptance criteria.
 
 ## Status
 
 Project foundation is complete.
 
-Current development focus: playable combat encounter.
+Current focus: playable combat encounter.

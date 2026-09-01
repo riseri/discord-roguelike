@@ -6,6 +6,7 @@ import dev.riseri.core.combat.CombatState
 import dev.riseri.core.combat.CombatStatus
 import dev.riseri.core.combat.EnemyCombatState
 import dev.riseri.core.combat.EnemyIntention
+import dev.riseri.core.combat.KnightAbilityValues
 import dev.riseri.core.combat.PlayerCombatState
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -29,6 +30,7 @@ data class UseAbilityRequest(
 data class CombatResponse(
     val player: PlayerResponse,
     val enemies: List<EnemyResponse>,
+    val abilities: List<AbilityResponse>,
     val phase: CombatPhase,
     val status: CombatStatus,
 ) {
@@ -37,8 +39,39 @@ data class CombatResponse(
             CombatResponse(
                 player = PlayerResponse.from(state.player),
                 enemies = state.enemies.map(EnemyResponse::from),
+                abilities = AbilityResponse.KNIGHT_ABILITIES,
                 phase = state.phase,
                 status = state.status,
+            )
+    }
+}
+
+enum class AbilityTargetResponse {
+    ENEMY,
+    SELF,
+}
+
+data class AbilityResponse(
+    val id: AbilityId,
+    val name: String,
+    val description: String,
+    val target: AbilityTargetResponse,
+) {
+    companion object {
+        val KNIGHT_ABILITIES =
+            listOf(
+                AbilityResponse(
+                    id = AbilityId.SLASH,
+                    name = "Slash",
+                    description = "Deal ${KnightAbilityValues.SLASH_DAMAGE} damage to one enemy.",
+                    target = AbilityTargetResponse.ENEMY,
+                ),
+                AbilityResponse(
+                    id = AbilityId.GUARD,
+                    name = "Guard",
+                    description = "Gain ${KnightAbilityValues.GUARD_BLOCK} Block.",
+                    target = AbilityTargetResponse.SELF,
+                ),
             )
     }
 }

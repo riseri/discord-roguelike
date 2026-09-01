@@ -31,7 +31,7 @@ class CombatService(
 
     @Synchronized
     fun start(seed: Long): CombatResponse {
-        val generated = EncounterGenerator.generate(enemyDefinitions.values, CombatRngState(seed))
+        val generated = EncounterGenerator.generateStarter(enemyDefinitions.values, CombatRngState(seed))
         val initialState =
             CombatState(
                 player =

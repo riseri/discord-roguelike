@@ -129,7 +129,7 @@ function App() {
       <main className="combat-shell combat-shell--welcome">
         <p className="eyebrow">Discord Roguelike</p>
         <h1>Ready your shield.</h1>
-        <p className="intro">Begin a short Knight encounter against a band of goblins.</p>
+        <p className="intro">Begin a short Knight encounter against a goblin.</p>
         <button className="primary-button" type="button" onClick={beginCombat} disabled={pending}>
           {pending ? 'Preparing encounter…' : 'Begin encounter'}
         </button>

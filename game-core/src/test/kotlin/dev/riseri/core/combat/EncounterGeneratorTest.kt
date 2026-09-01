@@ -8,6 +8,28 @@ import kotlin.test.assertNull
 
 class EncounterGeneratorTest {
     @Test
+    fun `starter encounter contains exactly one existing goblin deterministically`() {
+        val first = EncounterGenerator.generateStarter(definitions, CombatRngState(7_321))
+        val second = EncounterGenerator.generateStarter(definitions.reversed(), CombatRngState(7_321))
+
+        assertEquals(first, second)
+        assertEquals(CombatRngState(7_321), first.nextRngState)
+        assertEquals(1, first.encounter.enemies.size)
+        assertEquals(
+            EnemyContentId("goblin"),
+            first.encounter.enemies
+                .single()
+                .enemyContentId,
+        )
+        assertEquals(
+            HitPoints(40),
+            first.encounter.enemies
+                .single()
+                .maxHp,
+        )
+    }
+
+    @Test
     fun `fixed seed and definition pool generate the same encounter`() {
         val first = EncounterGenerator.generate(definitions, CombatRngState(7_321))
         val second = EncounterGenerator.generate(definitions.reversed(), CombatRngState(7_321))
@@ -17,7 +39,7 @@ class EncounterGeneratorTest {
     }
 
     @Test
-    fun `generates a valid playable normal combat composition`() {
+    fun `generates a valid multi-enemy normal combat composition`() {
         val result = EncounterGenerator.generate(definitions, CombatRngState(42))
 
         assertEquals(2, result.encounter.enemies.size)

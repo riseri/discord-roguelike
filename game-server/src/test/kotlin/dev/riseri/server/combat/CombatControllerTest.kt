@@ -38,7 +38,8 @@ class CombatControllerTest {
             ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.player.entityId").value("knight"))
             .andExpect(jsonPath("$.player.currentHp").value(100))
-            .andExpect(jsonPath("$.enemies", hasSize<Any>(2)))
+            .andExpect(jsonPath("$.enemies", hasSize<Any>(1)))
+            .andExpect(jsonPath("$.enemies[0].contentId").value("goblin"))
             .andExpect(jsonPath("$.enemies[0].intention.id").isString)
             .andExpect(jsonPath("$.status").value("ACTIVE"))
 

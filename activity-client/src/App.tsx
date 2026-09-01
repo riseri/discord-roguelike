@@ -125,17 +125,16 @@ function App() {
   if (!combat) {
     return (
       <main className="combat-shell combat-shell--welcome">
-        <p className="eyebrow">Discord Roguelike</p>
-        <h1>Ready your shield.</h1>
-        <p className="intro">Begin a short Knight encounter against a goblin.</p>
-        <button className="primary-button" type="button" onClick={beginCombat} disabled={pending}>
-          {pending ? 'Preparing encounter…' : 'Begin encounter'}
-        </button>
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
-          </p>
-        )}
+        <section className="welcome-window">
+          <div className="crest" aria-hidden="true">✦</div>
+          <p className="eyebrow">Discord Roguelike</p>
+          <h1>Goblin Ambush</h1>
+          <p className="intro">Steel your resolve. The old dungeon road is no longer safe.</p>
+          <button className="primary-button" type="button" onClick={beginCombat} disabled={pending}>
+            {pending ? 'Preparing encounter…' : 'Enter battle'}
+          </button>
+          {error && <p className="error-message" role="alert">{error}</p>}
+        </section>
       </main>
     )
   }
@@ -148,11 +147,11 @@ function App() {
     <main className="combat-shell">
       <header className="combat-header">
         <div>
-          <p className="eyebrow">Current encounter</p>
+          <p className="eyebrow">The Old Dungeon Road</p>
           <h1>Goblin Ambush</h1>
         </div>
         <div className={`status status--${combat.status.toLowerCase()}`} role="status">
-          {combat.status === 'ACTIVE' && 'Your turn'}
+          {combat.status === 'ACTIVE' && (pending ? 'Resolving…' : 'Command phase')}
           {combat.status === 'WON' && 'Victory'}
           {combat.status === 'LOST' && 'Defeated'}
         </div>
@@ -174,21 +173,25 @@ function App() {
       )}
 
       <section className="battlefield" aria-label="Combatants">
-        <article className="player-card">
-          <p className="card-label">Knight</p>
-          <h2>Your champion</h2>
-          <dl className="stats">
-            <div>
-              <dt>HP</dt>
-              <dd>
-                {combat.player.currentHp} / {combat.player.maxHp}
-              </dd>
+        <div className="battlefield__glow" aria-hidden="true" />
+        <article className="player-combatant">
+          <div className="fighter fighter--knight" aria-hidden="true">
+            <span className="fighter__shield" />
+            <span className="fighter__body" />
+          </div>
+          <section className="status-window player-status" aria-label="Knight status">
+            <div className="status-window__heading">
+              <div><p className="card-label">Vanguard</p><h2>Knight</h2></div>
+              <span className="level-mark">I</span>
             </div>
-            <div>
-              <dt>Block</dt>
-              <dd>{combat.player.block}</dd>
+            <div className="vital-row">
+              <div className="vital-row__label"><span>HP</span><strong>{combat.player.currentHp} / {combat.player.maxHp}</strong></div>
+              <div className="meter meter--hp" role="meter" aria-label="Knight health" aria-valuemin={0} aria-valuemax={combat.player.maxHp} aria-valuenow={combat.player.currentHp}>
+                <span style={{ width: `${(combat.player.currentHp / combat.player.maxHp) * 100}%` }} />
+              </div>
             </div>
-          </dl>
+            <div className="block-stat"><span className="block-stat__icon" aria-hidden="true">◆</span><span>Block</span><strong>{combat.player.block}</strong></div>
+          </section>
         </article>
 
         <div className="enemy-list">
@@ -196,7 +199,7 @@ function App() {
             const defeated = enemy.currentHp === 0
             return (
               <label
-                className={`enemy-card${selectedTarget === enemy.entityId ? ' enemy-card--selected' : ''}${defeated ? ' enemy-card--defeated' : ''}`}
+                className={`enemy-combatant${selectedTarget === enemy.entityId ? ' enemy-combatant--selected' : ''}${defeated ? ' enemy-combatant--defeated' : ''}`}
                 key={enemy.entityId}
               >
                 <input
@@ -207,21 +210,28 @@ function App() {
                   onChange={() => setSelectedTarget(enemy.entityId)}
                   disabled={defeated || !canAct}
                 />
-                <span className="enemy-card__heading">
-                  <span>
-                    <span className="card-label">Enemy</span>
-                    <strong>{displayName(enemy.contentId)}</strong>
-                  </span>
-                  <span className="target-marker">{defeated ? 'Defeated' : 'Target'}</span>
+                <span className="target-cursor" aria-hidden="true">▼ TARGET</span>
+                <span className="intent-banner">
+                  <span className="intent-banner__label">Next action</span>
+                  <strong>{enemy.intention ? displayName(enemy.intention.id) : 'No action'}</strong>
+                  {enemy.intention && <span>{enemy.intention.damage} damage</span>}
                 </span>
-                <span className="enemy-health">HP {enemy.currentHp} / {enemy.maxHp}</span>
-                <span className="intention">
-                  <span>Intention</span>
-                  <strong>
-                    {enemy.intention
-                      ? `${displayName(enemy.intention.id)} · ${enemy.intention.damage} damage`
-                      : 'None'}
-                  </strong>
+                <span className="fighter fighter--goblin" aria-hidden="true">
+                  <span className="fighter__ear fighter__ear--left" />
+                  <span className="fighter__ear fighter__ear--right" />
+                  <span className="fighter__body" />
+                </span>
+                <span className="status-window enemy-status">
+                  <span className="status-window__heading">
+                    <span><span className="card-label">Enemy</span><strong>{displayName(enemy.contentId)}</strong></span>
+                    <span className="target-marker">{defeated ? 'Down' : selectedTarget === enemy.entityId ? 'Selected' : 'Choose'}</span>
+                  </span>
+                  <span className="vital-row">
+                    <span className="vital-row__label"><span>HP</span><strong>{enemy.currentHp} / {enemy.maxHp}</strong></span>
+                    <span className="meter meter--enemy" role="meter" aria-label={`${displayName(enemy.contentId)} health`} aria-valuemin={0} aria-valuemax={enemy.maxHp} aria-valuenow={enemy.currentHp}>
+                      <span style={{ width: `${(enemy.currentHp / enemy.maxHp) * 100}%` }} />
+                    </span>
+                  </span>
                 </span>
               </label>
             )
@@ -231,9 +241,9 @@ function App() {
 
       {combat.status === 'ACTIVE' && (
         <section className="action-panel" aria-labelledby="ability-heading">
-          <div>
-            <p className="eyebrow">Choose your move</p>
-            <h2 id="ability-heading">Knight abilities</h2>
+          <div className="command-heading">
+            <p className="eyebrow">Knight</p>
+            <h2 id="ability-heading">Command</h2>
           </div>
           <div className="ability-list">
             {combat.abilities.map((ability) => (
@@ -245,13 +255,17 @@ function App() {
                 disabled={!canAct}
                 aria-pressed={selectedAbility === ability.id}
               >
+                <span className="command-cursor" aria-hidden="true">▸</span>
                 <strong>{ability.name}</strong>
-                <span>{ability.description}</span>
               </button>
             ))}
           </div>
+          <div className="command-detail" aria-live="polite">
+            <span>{selectedAbilityDetails?.target === 'SELF' ? 'Self' : 'Single enemy'}</span>
+            <p>{selectedAbilityDetails?.description}</p>
+          </div>
           <button className="primary-button" type="button" onClick={useAbility} disabled={!canAct || !hasTarget}>
-            {pending ? 'Resolving turn…' : `Use ${selectedAbilityDetails?.name ?? 'ability'}`}
+            {pending ? 'Resolving…' : 'Confirm'}
           </button>
           {error && (
             <p className="error-message" role="alert">

@@ -4,9 +4,12 @@ package dev.riseri.core.combat
 value class CombatRngState(
     val value: Long,
 ) {
+    /** Advances an explicit linear-congruential state so random choices can be replayed exactly. */
     fun nextInt(bound: Int): RandomIntResult {
         require(bound > 0) { "Random bound must be positive" }
 
+        // Long overflow is part of the generator definition. The unsigned shift keeps modulo input
+        // non-negative without relying on platform or global randomness.
         val nextValue = value * MULTIPLIER + INCREMENT
         val randomValue = ((nextValue ushr 1) % bound.toLong()).toInt()
         return RandomIntResult(randomValue, CombatRngState(nextValue))

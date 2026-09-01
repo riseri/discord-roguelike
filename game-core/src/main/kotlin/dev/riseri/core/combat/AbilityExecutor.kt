@@ -21,6 +21,8 @@ object AbilityExecutor {
         state: CombatState,
         action: GameAction.UseAbility,
     ): ActionResult {
+        // Terminal status takes precedence over stale phase or actor data so callers receive one
+        // stable reason whenever they submit an action after combat has ended.
         if (state.status != CombatStatus.ACTIVE) {
             throw InvalidActionException(InvalidActionReason.COMBAT_ENDED)
         }
@@ -58,6 +60,8 @@ object AbilityExecutor {
         val updatedEnemies = state.enemies.map { if (it.entityId == target.entityId) updatedTarget else it }
         val enemyDefeated = updatedTarget.currentHp.value == 0
         val combatWon = enemyDefeated && updatedEnemies.all { it.currentHp.value == 0 }
+        // Terminal events follow the action and damage events that caused them. Consumers can
+        // therefore animate the hit before the defeat and combat-victory transitions.
         val events =
             buildList {
                 add(
@@ -86,6 +90,8 @@ object AbilityExecutor {
             state =
                 state.copy(
                     enemies = updatedEnemies,
+                    // A winning action ends resolution immediately; there is no enemy phase after
+                    // combat becomes terminal.
                     phase = if (combatWon) CombatPhase.PLAYER else CombatPhase.ENEMY,
                     status = if (combatWon) CombatStatus.WON else CombatStatus.ACTIVE,
                 ),
@@ -98,6 +104,8 @@ object AbilityExecutor {
         action: GameAction.UseAbility,
     ): ActionResult {
         if (action.targetId != state.player.entityId) {
+            // Distinguish a known but illegal enemy target from an identifier that is not part of
+            // combat; callers can surface an invalid selection separately from stale input.
             val reason =
                 if (state.enemies.any { it.entityId == action.targetId }) {
                     InvalidActionReason.INVALID_TARGET

@@ -11,6 +11,8 @@ object EnemyTurnExecutor {
         val events = mutableListOf<GameEvent>()
         val enemies =
             state.enemies.map { enemy ->
+                // A visible intention is a player-facing commitment. Keeping it also avoids
+                // consuming RNG when intention generation is called more than once.
                 if (enemy.currentHp.value == 0 || enemy.currentIntention != null) {
                     enemy
                 } else {
@@ -41,6 +43,8 @@ object EnemyTurnExecutor {
         var player = state.player
         val events = mutableListOf<GameEvent>()
 
+        // List order is combat order. This makes multi-enemy resolution deterministic and ensures
+        // the first lethal action prevents every later enemy from acting.
         val resolvedEnemies =
             state.enemies.map { enemy ->
                 val intention = enemy.currentIntention
@@ -85,6 +89,8 @@ object EnemyTurnExecutor {
                 enemies = resolvedEnemies,
                 phase = CombatPhase.PLAYER,
             )
+        // Generate the next committed intentions only after every current intention has resolved,
+        // making them visible for the player's newly started turn.
         val generated = generateIntentions(afterResolution, enemyDefinitions)
 
         return ActionResult(
@@ -98,6 +104,8 @@ object EnemyTurnExecutor {
         sourceId: EntityId,
         incomingDamage: Int,
     ): DamageResult {
+        // Damage and events follow the documented pipeline: Block is consumed before HP, and HP
+        // damage is clamped so externally visible health never becomes negative.
         val blockAbsorbed = minOf(player.block.value, incomingDamage)
         val remainingDamage = incomingDamage - blockAbsorbed
         val hpDamage = minOf(player.currentHp.value, remainingDamage)

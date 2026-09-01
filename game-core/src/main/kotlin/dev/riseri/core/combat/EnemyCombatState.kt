@@ -40,6 +40,8 @@ data class EnemyDefinition(
         }
     }
 
+    // Intentions are generated separately so the chosen action and RNG advance are captured in the
+    // same authoritative transition before the player is asked to act.
     fun createCombatState(entityId: EntityId) =
         EnemyCombatState(
             entityId = entityId,

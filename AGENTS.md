@@ -191,3 +191,32 @@ Examples:
     bugfix/24-block-damage-calculation
     chore/30-update-ci
     docs/31-update-combat-rules
+
+## Code Comments
+
+Add comments when they improve understanding of non-obvious behavior, constraints, or design decisions.
+
+Comments should explain why the code exists or why a particular approach is required, rather than simply restating what the code does.
+
+Add or preserve comments for:
+
+- Non-obvious game rules
+- Determinism or RNG requirements
+- Important architectural boundaries
+- Edge cases that are easy to misunderstand
+- Workarounds or unusual implementation choices
+- Public APIs or domain concepts whose intent is not obvious from their names
+- Complex algorithms or state transitions
+
+When modifying existing code, add a comment if the surrounding logic is difficult to understand without additional context.
+
+Do not add comments for obvious code.
+
+Avoid comments such as:
+
+    // Increment the counter
+    counter++
+
+Prefer clear naming and small functions over explanatory comments when the code can be made self-documenting.
+
+Update or remove comments when code changes make them inaccurate.

@@ -90,6 +90,14 @@ Data definitions for:
 - relics
 - events
 
+## Java
+
+This project uses JDK 25.
+
+All backend development, testing, CI, and deployment should target Java 25.
+
+Do not downgrade the Java toolchain unless explicitly requested.
+
 ## Architecture
 
 Prefer:
@@ -135,3 +143,33 @@ When modifying game-core, run the game-core tests before finishing.
 Do not silently expand a task.
 
 Prefer the smallest implementation that satisfies the current MVP.
+
+## Required Validation
+
+Before completing a task:
+
+### Backend changes
+
+Run:
+
+    ./gradlew test
+    ./gradlew spotlessCheck
+
+### Frontend changes
+
+Run:
+
+    cd activity-client
+    npm run lint
+    npm run build
+
+Do not mark a task complete when required validation fails.
+
+## Generated Project State
+
+Do not manually modify:
+
+- `docs/CURRENT_MILESTONE.md`
+- `docs/PROGRESS.md`
+
+These files are generated from GitHub project state.

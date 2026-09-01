@@ -55,7 +55,7 @@ class AbilityExecutorTest {
         )
         assertEquals(
             GameEvent.DamageDealt(EntityId("knight"), EntityId("goblin-1"), 10),
-            result.events.last(),
+            result.events.filterIsInstance<GameEvent.DamageDealt>().single(),
         )
     }
 

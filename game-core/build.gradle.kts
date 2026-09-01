@@ -1,12 +1,7 @@
 plugins {
-    kotlin("jvm") version "2.4.10"
-}
+    kotlin("jvm")
 
-group = "org.example"
-version = "1.0-SNAPSHOT"
-
-repositories {
-    mavenCentral()
+    id("com.diffplug.spotless")
 }
 
 dependencies {
@@ -15,6 +10,16 @@ dependencies {
 
 kotlin {
     jvmToolchain(25)
+}
+
+spotless {
+    kotlin {
+        ktlint()
+    }
+
+    kotlinGradle {
+        ktlint()
+    }
 }
 
 tasks.test {

@@ -14,6 +14,10 @@ class EnemyDataLoadException(
     cause: Throwable? = null,
 ) : IllegalArgumentException(message, cause)
 
+/**
+ * Owns serialization and resource access so file formats never leak into the authoritative core.
+ * The JSON tree is validated field by field to report the content location of malformed data.
+ */
 class EnemyDataLoader(
     private val objectMapper: ObjectMapper = ObjectMapper(),
 ) {

@@ -2,6 +2,8 @@ package dev.riseri.core.combat
 
 data class ActionResult(
     val state: CombatState,
+    // Events stay in resolution order so callers can present the authoritative sequence without
+    // reconstructing combat rules from the final state.
     val events: List<GameEvent>,
 )
 

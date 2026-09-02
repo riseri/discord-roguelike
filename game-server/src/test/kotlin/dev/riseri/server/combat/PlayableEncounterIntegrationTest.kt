@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -36,8 +37,9 @@ class PlayableEncounterIntegrationTest {
 
     @Test
     fun `base Knight deterministically defeats the starter encounter`() {
+        postJson("/api/runs", """{"seed":42}""", expectedStatus = 201)
         var combat =
-            postJson("/api/combat", """{"seed":42}""", expectedStatus = 201)
+            postJson("/api/combat", expectedStatus = 201)
 
         assertEquals("knight", combat.path("player").path("entityId").stringValue())
         assertEquals(
@@ -73,20 +75,41 @@ class PlayableEncounterIntegrationTest {
 
         assertEquals("WON", combat.path("status").stringValue())
         assertTrue(combat.path("player").path("currentHp").asInt() > 0)
+
+        val run = getJson("/api/runs/current")
+        assertEquals("ACTIVE", run.path("status").stringValue())
+        assertEquals(combat.path("player").path("currentHp").asInt(), run.path("playerHp").asInt())
+        assertEquals(1, run.path("completedRoomIds").size())
+        assertEquals("start", run.path("completedRoomIds").get(0).stringValue())
     }
 
     private fun postJson(
         path: String,
-        body: String,
+        body: String? = null,
         expectedStatus: Int = 200,
     ): JsonNode {
         val response =
             mockMvc
                 .perform(
                     post(path)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body),
+                        .apply {
+                            if (body != null) {
+                                contentType(MediaType.APPLICATION_JSON)
+                                content(body)
+                            }
+                        },
                 ).andExpect(status().`is`(expectedStatus))
+                .andReturn()
+                .response.contentAsString
+
+        return objectMapper.readTree(response)
+    }
+
+    private fun getJson(path: String): JsonNode {
+        val response =
+            mockMvc
+                .perform(get(path))
+                .andExpect(status().isOk)
                 .andReturn()
                 .response.contentAsString
 

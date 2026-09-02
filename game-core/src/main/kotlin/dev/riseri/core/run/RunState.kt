@@ -1,5 +1,7 @@
 package dev.riseri.core.run
 
+import dev.riseri.core.combat.CombatState
+import dev.riseri.core.combat.CombatStatus
 import dev.riseri.core.combat.HitPoints
 
 @JvmInline
@@ -45,11 +47,29 @@ data class RunState(
     val completedRoomIds: Set<RoomId>,
     val ownedRelicIds: Set<RelicId>,
     val rngState: RunRngState,
+    val activeCombat: CombatState? = null,
 ) {
     init {
         require(playerMaxHp.value > 0) { "Player maximum hit points must be positive" }
         require(playerHp.value <= playerMaxHp.value) {
             "Player hit points must not exceed maximum hit points"
+        }
+        activeCombat?.let { combat ->
+            require(combat.player.currentHp == playerHp && combat.player.maxHp == playerMaxHp) {
+                "Active combat player hit points must match the owning run"
+            }
+            require(combat.rngState.value == rngState.value) {
+                "Active combat RNG state must match the owning run"
+            }
+            require(
+                when (combat.status) {
+                    CombatStatus.ACTIVE -> status == RunStatus.ACTIVE
+                    CombatStatus.WON -> status != RunStatus.LOST
+                    CombatStatus.LOST -> status == RunStatus.LOST
+                },
+            ) {
+                "Active combat terminal status must agree with the owning run"
+            }
         }
     }
 

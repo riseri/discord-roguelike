@@ -9,6 +9,7 @@ import dev.riseri.core.combat.EnemyIntention
 import dev.riseri.core.combat.GameEvent
 import dev.riseri.core.combat.KnightAbilityValues
 import dev.riseri.core.combat.PlayerCombatState
+import dev.riseri.server.run.NoActiveRunException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -18,10 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.RestControllerAdvice
-
-data class StartCombatRequest(
-    val seed: Long,
-)
 
 data class UseAbilityRequest(
     val abilityId: AbilityId,
@@ -230,9 +227,7 @@ class CombatController(
     private val combatService: CombatService,
 ) {
     @PostMapping
-    fun start(
-        @RequestBody request: StartCombatRequest,
-    ): ResponseEntity<CombatResponse> = ResponseEntity.status(HttpStatus.CREATED).body(combatService.start(request.seed))
+    fun start(): ResponseEntity<CombatResponse> = ResponseEntity.status(HttpStatus.CREATED).body(combatService.start())
 
     @GetMapping
     fun get(): CombatResponse = combatService.get()
@@ -254,4 +249,10 @@ class CombatExceptionHandler {
         ResponseEntity
             .status(HttpStatus.NOT_FOUND)
             .body(ApiErrorResponse("NO_ACTIVE_COMBAT", exception.message.orEmpty()))
+
+    @ExceptionHandler(NoActiveRunException::class)
+    fun noActiveRun(exception: NoActiveRunException): ResponseEntity<ApiErrorResponse> =
+        ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(ApiErrorResponse("NO_ACTIVE_RUN", exception.message.orEmpty()))
 }

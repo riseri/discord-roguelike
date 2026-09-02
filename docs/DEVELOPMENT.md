@@ -59,6 +59,15 @@ The expected workflow is:
     Feature or bugfix branch
         |
         v
+    Validation
+        |
+        v
+    Visual review (when UI presentation changes)
+        |
+        v
+    User approval (when visual review is required)
+        |
+        v
     Pull Request
         |
         v
@@ -89,12 +98,41 @@ Codex should:
 6. Add or update appropriate tests.
 7. Run required validation.
 8. Review the diff for unrelated changes.
-9. Push the branch.
-10. Open a pull request against `main`.
+9. If the task materially changes UI presentation, complete the visual review workflow and wait for user approval.
+10. Push the branch.
+11. Open a pull request against `main`.
+
+## Visual Review Workflow
+
+UI-affecting work is not considered ready for a pull request solely because linting, builds, or automated tests pass.
+
+For tasks that materially change `activity-client` presentation, Codex must:
+
+1. Start the backend and frontend locally as needed for the affected flow.
+2. Open the application in a browser.
+3. Exercise the changed flow from start to finish.
+4. Capture screenshots that show each materially changed state needed for review.
+5. Review those screenshots for obvious issues in layout, spacing, hierarchy, readability, overflow, contrast, responsive behavior, and consistency with the issue's design direction.
+6. Iterate on obvious visual problems before presenting the work.
+7. Show the final screenshots to the user.
+8. Wait for explicit user approval.
+9. Only after approval, push the final branch state if needed and open the pull request.
+
+Examples of work that normally requires this gate:
+
+- combat-screen redesigns
+- status/HUD changes
+- new menus or dialogs
+- responsive-layout changes
+- animation or transition changes
+- new user-facing screens
+- significant styling/theme changes
+
+Small non-visual frontend changes, such as internal refactors with no presentation impact, do not require screenshot approval unless the issue says otherwise.
 
 ## Standard Codex Prompt
 
-Use:
+For tasks without material UI presentation changes, use:
 
     Implement GitHub issue #<ISSUE_NUMBER>.
 
@@ -103,6 +141,25 @@ Use:
     Stay within the issue scope and satisfy all acceptance criteria.
 
     When complete, run the required validation, push the branch, and open a pull request against `main` that closes the issue.
+
+For tasks that materially change UI presentation, use:
+
+    Implement GitHub issue #<ISSUE_NUMBER>.
+
+    Read and follow `AGENTS.md` and all documentation referenced by the issue.
+
+    Stay within the issue scope and satisfy all acceptance criteria.
+
+    Because this task changes the UI, run the application locally and inspect the affected flow in a browser.
+
+    Before opening a pull request:
+    - exercise the changed flow
+    - capture screenshots of the final UI states needed for review
+    - review the result for obvious visual problems
+    - iterate on any obvious issues
+    - show me the final screenshots for approval
+
+    Do not open the pull request until I explicitly approve the visual result.
 
 Task details should not be duplicated in the prompt because the GitHub Issue is the task specification.
 
@@ -127,6 +184,8 @@ A pull request should:
 - state which validation commands were run
 - mention important design decisions or limitations
 - avoid unrelated changes
+
+For UI-affecting work that requires visual review, the pull request should only be created after the user has approved the final browser screenshots.
 
 Prefer:
 
@@ -163,6 +222,7 @@ Review:
 - tests
 - comments and naming
 - module boundaries
+- final visual result for UI-affecting work
 
 ## Scope Changes
 

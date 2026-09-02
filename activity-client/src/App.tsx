@@ -200,16 +200,18 @@ function App() {
                     onChange={() => setSelectedTarget(enemy.entityId)}
                     disabled={defeated || !canAct}
                   />
-                  <TargetCursor selected={selectedTarget === enemy.entityId} />
-                  <EnemyIntent
-                    name={enemy.intention ? displayName(enemy.intention.id) : 'No action'}
-                    damage={enemy.intention?.damage}
-                  />
-                  <span className="fighter fighter--goblin" aria-hidden="true">
-                    <span className="fighter__ear fighter__ear--left" />
-                    <span className="fighter__ear fighter__ear--right" />
-                    <span className="fighter__body" />
-                  </span>
+                  <div className="enemy-presentation">
+                    <TargetCursor selected={selectedTarget === enemy.entityId} />
+                    <EnemyIntent
+                      name={enemy.intention ? displayName(enemy.intention.id) : 'No action'}
+                      damage={enemy.intention?.damage}
+                    />
+                    <span className="fighter fighter--goblin" aria-hidden="true">
+                      <span className="fighter__ear fighter__ear--left" />
+                      <span className="fighter__ear fighter__ear--right" />
+                      <span className="fighter__body" />
+                    </span>
+                  </div>
                 </label>
               )
             })}

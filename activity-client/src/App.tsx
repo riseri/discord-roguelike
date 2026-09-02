@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ShieldIcon, SwordIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -57,6 +57,25 @@ interface ApiError {
   message?: string
 }
 
+type CombatEvent = {
+  type: 'ABILITY_USED' | 'DAMAGE_DEALT' | 'BLOCK_GAINED' | 'ENEMY_INTENTION_GENERATED' |
+    'ENEMY_ACTION_USED' | 'BLOCK_ABSORBED' | 'ENTITY_DEFEATED' | 'COMBAT_WON' | 'COMBAT_LOST'
+  actorId?: string
+  abilityId?: AbilityId
+  sourceId?: string
+  targetId?: string
+  entityId?: string
+  enemyId?: string
+  intention?: EnemyIntention
+  intentionId?: string
+  amount?: number
+}
+
+interface CombatActionResponse {
+  state: CombatState
+  events: CombatEvent[]
+}
+
 function displayName(identifier: string) {
   return identifier
     .replaceAll('-', ' ')
@@ -64,10 +83,10 @@ function displayName(identifier: string) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-async function requestCombat(
+async function requestCombat<T>(
   path: string,
   body: Record<string, string | number>,
-): Promise<CombatState> {
+): Promise<T> {
   const response = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -79,7 +98,71 @@ async function requestCombat(
     throw new Error(error.message || 'The server could not complete that action.')
   }
 
-  return (await response.json()) as CombatState
+  return (await response.json()) as T
+}
+
+const messageDelay = 360
+const stateChangeDelay = 220
+
+function waitForPresentation(delay: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, delay))
+}
+
+// Event amounts are authoritative deltas, allowing the UI to reveal state without replaying rules.
+function applyEvent(state: CombatState, event: CombatEvent): CombatState {
+  const amount = event.amount ?? 0
+  if (event.type === 'DAMAGE_DEALT' && event.targetId) {
+    if (event.targetId === state.player.entityId) {
+      return { ...state, player: { ...state.player, currentHp: Math.max(0, state.player.currentHp - amount) } }
+    }
+    return {
+      ...state,
+      enemies: state.enemies.map((enemy) => enemy.entityId === event.targetId
+        ? { ...enemy, currentHp: Math.max(0, enemy.currentHp - amount) }
+        : enemy),
+    }
+  }
+  if (event.type === 'BLOCK_GAINED' && event.entityId === state.player.entityId) {
+    return { ...state, player: { ...state.player, block: state.player.block + amount } }
+  }
+  if (event.type === 'BLOCK_ABSORBED' && event.entityId === state.player.entityId) {
+    return { ...state, player: { ...state.player, block: Math.max(0, state.player.block - amount) } }
+  }
+  if (event.type === 'ENEMY_INTENTION_GENERATED' && event.enemyId && event.intention) {
+    return {
+      ...state,
+      enemies: state.enemies.map((enemy) => enemy.entityId === event.enemyId
+        ? { ...enemy, intention: event.intention ?? null }
+        : enemy),
+    }
+  }
+  if (event.type === 'ENEMY_ACTION_USED' && event.enemyId) {
+    return {
+      ...state,
+      phase: 'ENEMY',
+      enemies: state.enemies.map((enemy) => enemy.entityId === event.enemyId
+        ? { ...enemy, intention: null }
+        : enemy),
+    }
+  }
+  if (event.type === 'COMBAT_WON') return { ...state, status: 'WON' }
+  if (event.type === 'COMBAT_LOST') return { ...state, status: 'LOST' }
+  return state
+}
+
+function eventMessage(event: CombatEvent, state: CombatState) {
+  if (event.type === 'ABILITY_USED') return `Knight uses ${displayName(event.abilityId ?? 'ability')}`
+  if (event.type === 'DAMAGE_DEALT') return `${event.amount ?? 0} damage`
+  if (event.type === 'BLOCK_GAINED') return `Guard raised · +${event.amount ?? 0} Block`
+  if (event.type === 'BLOCK_ABSORBED') return `Block absorbs ${event.amount ?? 0}`
+  if (event.type === 'ENEMY_ACTION_USED') {
+    const enemy = state.enemies.find(({ entityId }) => entityId === event.enemyId)
+    return `${displayName(enemy?.contentId ?? 'Enemy')} uses ${displayName(event.intentionId ?? 'Attack')}`
+  }
+  if (event.type === 'ENTITY_DEFEATED') return event.entityId === state.player.entityId ? 'Knight falls' : 'Enemy defeated'
+  if (event.type === 'COMBAT_WON') return 'Victory!'
+  if (event.type === 'COMBAT_LOST') return 'Defeated'
+  return null
 }
 
 function App() {
@@ -87,13 +170,15 @@ function App() {
   const [selectedAbility, setSelectedAbility] = useState<AbilityId>('SLASH')
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [presentation, setPresentation] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const actionInFlight = useRef(false)
 
   const beginCombat = async () => {
     setPending(true)
     setError(null)
     try {
-      const nextCombat = await requestCombat('/api/combat', { seed: 9 })
+      const nextCombat = await requestCombat<CombatState>('/api/combat', { seed: 9 })
       setCombat(nextCombat)
       setSelectedTarget(nextCombat.enemies.find((enemy) => enemy.currentHp > 0)?.entityId ?? null)
     } catch (requestError) {
@@ -104,7 +189,7 @@ function App() {
   }
 
   const useAbility = async () => {
-    if (!combat) return
+    if (!combat || actionInFlight.current) return
 
     const ability = combat.abilities.find(({ id }) => id === selectedAbility)
     const targetId = ability?.target === 'SELF' ? combat.player.entityId : selectedTarget
@@ -113,25 +198,40 @@ function App() {
       return
     }
 
+    actionInFlight.current = true
     setPending(true)
     setError(null)
     try {
-      const nextCombat = await requestCombat('/api/combat/actions', {
+      const result = await requestCombat<CombatActionResponse>('/api/combat/actions', {
         abilityId: selectedAbility,
         targetId,
       })
-      setCombat(nextCombat)
-      const currentTarget = nextCombat.enemies.find(
+      let displayedCombat = combat
+      for (const event of result.events) {
+        const message = eventMessage(event, displayedCombat)
+        if (message) {
+          setPresentation(message)
+          await waitForPresentation(messageDelay)
+        }
+        displayedCombat = applyEvent(displayedCombat, event)
+        setCombat(displayedCombat)
+        if (message) await waitForPresentation(stateChangeDelay)
+      }
+      setCombat(result.state)
+      setPresentation(null)
+      const currentTarget = result.state.enemies.find(
         (enemy) => enemy.entityId === selectedTarget && enemy.currentHp > 0,
       )
       setSelectedTarget(
         currentTarget?.entityId ??
-          nextCombat.enemies.find((enemy) => enemy.currentHp > 0)?.entityId ??
+          result.state.enemies.find((enemy) => enemy.currentHp > 0)?.entityId ??
           null,
       )
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to reach the game server.')
     } finally {
+      actionInFlight.current = false
+      setPresentation(null)
       setPending(false)
     }
   }
@@ -165,7 +265,7 @@ function App() {
           <p>The Old Dungeon Road</p>
         </div>
         <div className={`phase-badge phase-badge--${combat.status.toLowerCase()}`} role="status">
-          {combat.status === 'ACTIVE' && (pending ? 'Resolving…' : 'Your turn')}
+          {combat.status === 'ACTIVE' && (presentation ?? (pending ? 'Resolving…' : 'Your turn'))}
           {combat.status === 'WON' && 'Victory'}
           {combat.status === 'LOST' && 'Defeated'}
         </div>

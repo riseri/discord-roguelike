@@ -86,10 +86,18 @@ class CombatControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"abilityId":"SLASH","targetId":"$targetId"}"""),
             ).andExpect(status().isOk)
-            .andExpect(jsonPath("$.enemies[0].currentHp").value(startingHp - 15))
-            .andExpect(jsonPath("$.player.currentHp").value(expectedPlayerHp))
-            .andExpect(jsonPath("$.phase").value("PLAYER"))
-            .andExpect(jsonPath("$.enemies[0].intention.id").isString)
+            .andExpect(jsonPath("$.state.enemies[0].currentHp").value(startingHp - 15))
+            .andExpect(jsonPath("$.state.player.currentHp").value(expectedPlayerHp))
+            .andExpect(jsonPath("$.state.phase").value("PLAYER"))
+            .andExpect(jsonPath("$.state.enemies[0].intention.id").isString)
+            .andExpect(jsonPath("$.events[0].type").value("ABILITY_USED"))
+            .andExpect(jsonPath("$.events[0].abilityId").value("SLASH"))
+            .andExpect(jsonPath("$.events[1].type").value("DAMAGE_DEALT"))
+            .andExpect(jsonPath("$.events[1].targetId").value(targetId))
+            .andExpect(jsonPath("$.events[1].amount").value(15))
+            .andExpect(jsonPath("$.events[2].type").value("ENEMY_ACTION_USED"))
+            .andExpect(jsonPath("$.events[3].type").value("DAMAGE_DEALT"))
+            .andExpect(jsonPath("$.events[4].type").value("ENEMY_INTENTION_GENERATED"))
     }
 
     @Test

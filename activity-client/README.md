@@ -1,5 +1,11 @@
 # React + TypeScript + Vite
 
+## Game UI foundation
+
+The combat UI uses a small Radix-backed shadcn/ui foundation for accessible interaction behavior. Generated primitives live under `src/components/ui`; the current combat screen uses Button, Dialog, Progress, Separator, and Toggle Group only.
+
+Game-specific presentation remains in project-owned wrappers under `src/components/game-ui`. Components such as `JrpgWindow`, `CommandButton`, `HpBar`, `BlockMeter`, `EnemyIntent`, and `ResultWindow` own the navy, cream, and gold JRPG styling so generated shadcn defaults do not define the visual design.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

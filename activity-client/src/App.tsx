@@ -1,5 +1,19 @@
 import { useState } from 'react'
+import { ShieldIcon, SwordIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 import './App.css'
+import './components/game-ui/GameUi.css'
+import {
+  CombatantStatus,
+  CommandButton,
+  CommandMenu,
+  EnemyIntent,
+  JrpgWindow,
+  ResultWindow,
+  TargetButton,
+  TargetCursor,
+} from './components/game-ui/GameUi'
 
 type AbilityId = 'SLASH' | 'GUARD'
 type CombatStatus = 'ACTIVE' | 'WON' | 'LOST'
@@ -125,16 +139,16 @@ function App() {
   if (!combat) {
     return (
       <main className="combat-shell combat-shell--welcome">
-        <section className="welcome-window">
+        <JrpgWindow as="section" className="welcome-window">
           <div className="crest" aria-hidden="true">✦</div>
           <p className="eyebrow">Discord Roguelike</p>
           <h1>Goblin Ambush</h1>
           <p className="intro">Steel your resolve. The old dungeon road is no longer safe.</p>
-          <button className="primary-button" type="button" onClick={beginCombat} disabled={pending}>
+          <Button className="primary-button" type="button" onClick={beginCombat} disabled={pending}>
             {pending ? 'Preparing encounter…' : 'Enter battle'}
-          </button>
+          </Button>
           {error && <p className="error-message" role="alert">{error}</p>}
-        </section>
+        </JrpgWindow>
       </main>
     )
   }
@@ -145,134 +159,157 @@ function App() {
 
   return (
     <main className="combat-shell">
-      <header className="combat-header">
-        <div>
-          <p className="eyebrow">The Old Dungeon Road</p>
+      <JrpgWindow as="header" className="combat-header">
+        <div className="combat-header__title">
           <h1>Goblin Ambush</h1>
+          <p>The Old Dungeon Road</p>
         </div>
-        <div className={`status status--${combat.status.toLowerCase()}`} role="status">
-          {combat.status === 'ACTIVE' && (pending ? 'Resolving…' : 'Command phase')}
+        <div className={`phase-badge phase-badge--${combat.status.toLowerCase()}`} role="status">
+          {combat.status === 'ACTIVE' && (pending ? 'Resolving…' : 'Your turn')}
           {combat.status === 'WON' && 'Victory'}
           {combat.status === 'LOST' && 'Defeated'}
         </div>
-      </header>
+        <span className="encounter-kind">Solo encounter</span>
+      </JrpgWindow>
 
-      {combat.status !== 'ACTIVE' && (
-        <section className="result-panel">
-          <h2>{combat.status === 'WON' ? 'Encounter cleared' : 'The Knight has fallen'}</h2>
-          <p>{combat.status === 'WON' ? 'Every enemy has been defeated.' : 'Your run ends here.'}</p>
-          <button className="secondary-button" type="button" onClick={beginCombat} disabled={pending}>
-            {pending ? 'Preparing…' : 'Start another encounter'}
-          </button>
-          {error && (
-            <p className="error-message" role="alert">
-              {error}
-            </p>
-          )}
-        </section>
-      )}
+      {combat.status !== 'ACTIVE' && <ResultWindow status={combat.status} pending={pending} onRestart={beginCombat} />}
 
       <section className="battlefield" aria-label="Combatants">
         <div className="battlefield__glow" aria-hidden="true" />
-        <article className="player-combatant">
-          <div className="fighter fighter--knight" aria-hidden="true">
-            <span className="fighter__shield" />
-            <span className="fighter__body" />
-          </div>
-          <section className="status-window player-status" aria-label="Knight status">
-            <div className="status-window__heading">
-              <div><p className="card-label">Vanguard</p><h2>Knight</h2></div>
-              <span className="level-mark">I</span>
+        <div className="battlefield-stage">
+          <article className="player-combatant" aria-label="Knight">
+            <div className="fighter fighter--knight" aria-hidden="true">
+              <span className="fighter__shield" />
+              <span className="fighter__body" />
             </div>
-            <div className="vital-row">
-              <div className="vital-row__label"><span>HP</span><strong>{combat.player.currentHp} / {combat.player.maxHp}</strong></div>
-              <div className="meter meter--hp" role="meter" aria-label="Knight health" aria-valuemin={0} aria-valuemax={combat.player.maxHp} aria-valuenow={combat.player.currentHp}>
-                <span style={{ width: `${(combat.player.currentHp / combat.player.maxHp) * 100}%` }} />
-              </div>
-            </div>
-            <div className="block-stat"><span className="block-stat__icon" aria-hidden="true">◆</span><span>Block</span><strong>{combat.player.block}</strong></div>
-          </section>
-        </article>
+          </article>
 
-        <div className="enemy-list">
-          {combat.enemies.map((enemy) => {
-            const defeated = enemy.currentHp === 0
-            return (
-              <label
-                className={`enemy-combatant${selectedTarget === enemy.entityId ? ' enemy-combatant--selected' : ''}${defeated ? ' enemy-combatant--defeated' : ''}`}
-                key={enemy.entityId}
-              >
-                <input
-                  type="radio"
-                  name="target"
-                  value={enemy.entityId}
-                  checked={selectedTarget === enemy.entityId}
-                  onChange={() => setSelectedTarget(enemy.entityId)}
-                  disabled={defeated || !canAct}
-                />
-                <span className="target-cursor" aria-hidden="true">▼ TARGET</span>
-                <span className="intent-banner">
-                  <span className="intent-banner__label">Next action</span>
-                  <strong>{enemy.intention ? displayName(enemy.intention.id) : 'No action'}</strong>
-                  {enemy.intention && <span>{enemy.intention.damage} damage</span>}
-                </span>
-                <span className="fighter fighter--goblin" aria-hidden="true">
-                  <span className="fighter__ear fighter__ear--left" />
-                  <span className="fighter__ear fighter__ear--right" />
-                  <span className="fighter__body" />
-                </span>
-                <span className="status-window enemy-status">
-                  <span className="status-window__heading">
-                    <span><span className="card-label">Enemy</span><strong>{displayName(enemy.contentId)}</strong></span>
-                    <span className="target-marker">{defeated ? 'Down' : selectedTarget === enemy.entityId ? 'Selected' : 'Choose'}</span>
+          <div className="enemy-list">
+            {combat.enemies.map((enemy) => {
+              const defeated = enemy.currentHp === 0
+              return (
+                <label
+                  className={`enemy-combatant${selectedTarget === enemy.entityId ? ' enemy-combatant--selected' : ''}${defeated ? ' enemy-combatant--defeated' : ''}`}
+                  key={enemy.entityId}
+                >
+                  <input
+                    type="radio"
+                    name="target"
+                    value={enemy.entityId}
+                    checked={selectedTarget === enemy.entityId}
+                    onChange={() => setSelectedTarget(enemy.entityId)}
+                    disabled={defeated || !canAct}
+                  />
+                  <TargetCursor selected={selectedTarget === enemy.entityId} />
+                  <EnemyIntent
+                    name={enemy.intention ? displayName(enemy.intention.id) : 'No action'}
+                    damage={enemy.intention?.damage}
+                  />
+                  <span className="fighter fighter--goblin" aria-hidden="true">
+                    <span className="fighter__ear fighter__ear--left" />
+                    <span className="fighter__ear fighter__ear--right" />
+                    <span className="fighter__body" />
                   </span>
-                  <span className="vital-row">
-                    <span className="vital-row__label"><span>HP</span><strong>{enemy.currentHp} / {enemy.maxHp}</strong></span>
-                    <span className="meter meter--enemy" role="meter" aria-label={`${displayName(enemy.contentId)} health`} aria-valuemin={0} aria-valuemax={enemy.maxHp} aria-valuenow={enemy.currentHp}>
-                      <span style={{ width: `${(enemy.currentHp / enemy.maxHp) * 100}%` }} />
+                </label>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="battlefield-status-row">
+          <CombatantStatus
+            className="player-status"
+            name="Knight"
+            label="You"
+            currentHp={combat.player.currentHp}
+            maxHp={combat.player.maxHp}
+            hpLabel="Knight health"
+            tone="player"
+            block={combat.player.block}
+            marker={<span className="level-mark"><ShieldIcon size={16} /></span>}
+          />
+          <div className="enemy-status-list">
+            {combat.enemies.map((enemy) => {
+              const defeated = enemy.currentHp === 0
+              return (
+                <CombatantStatus
+                  key={enemy.entityId}
+                  className="enemy-status"
+                  name={displayName(enemy.contentId)}
+                  label="Enemy"
+                  currentHp={enemy.currentHp}
+                  maxHp={enemy.maxHp}
+                  hpLabel={`${displayName(enemy.contentId)} health`}
+                  tone="enemy"
+                  marker={
+                    <span className="target-marker">
+                      {defeated ? 'Down' : selectedTarget === enemy.entityId ? 'Selected' : 'Choose'}
                     </span>
-                  </span>
-                </span>
-              </label>
-            )
-          })}
+                  }
+                />
+              )
+            })}
+          </div>
         </div>
       </section>
 
       {combat.status === 'ACTIVE' && (
-        <section className="action-panel" aria-labelledby="ability-heading">
-          <div className="command-heading">
-            <p className="eyebrow">Knight</p>
-            <h2 id="ability-heading">Command</h2>
-          </div>
-          <div className="ability-list">
-            {combat.abilities.map((ability) => (
-              <button
-                className={`ability-button${selectedAbility === ability.id ? ' ability-button--selected' : ''}`}
-                type="button"
-                key={ability.id}
-                onClick={() => setSelectedAbility(ability.id)}
-                disabled={!canAct}
-                aria-pressed={selectedAbility === ability.id}
-              >
-                <span className="command-cursor" aria-hidden="true">▸</span>
-                <strong>{ability.name}</strong>
-              </button>
-            ))}
+        <JrpgWindow as="section" className="action-panel" aria-labelledby="ability-heading">
+          <div className="command-menu">
+            <p className="panel-prompt" id="ability-heading">Choose an action</p>
+            <CommandMenu
+              value={selectedAbility}
+              onValueChange={(value) => setSelectedAbility(value as AbilityId)}
+              disabled={!canAct}
+            >
+              {combat.abilities.map((ability) => (
+                <CommandButton
+                  key={ability.id}
+                  value={ability.id}
+                  icon={ability.id === 'GUARD' ? <ShieldIcon size={17} /> : <SwordIcon size={17} />}
+                >
+                  {ability.name}
+                </CommandButton>
+              ))}
+            </CommandMenu>
           </div>
           <div className="command-detail" aria-live="polite">
-            <span>{selectedAbilityDetails?.target === 'SELF' ? 'Self' : 'Single enemy'}</span>
+            <div className="command-detail__title">
+              {selectedAbility === 'GUARD' ? <ShieldIcon size={24} /> : <SwordIcon size={24} />}
+              <h2>{selectedAbilityDetails?.name}</h2>
+            </div>
             <p>{selectedAbilityDetails?.description}</p>
+            <Separator className="command-separator" />
+            <dl>
+              <div><dt>Target</dt><dd>{selectedAbilityDetails?.target === 'SELF' ? 'Self' : 'One enemy'}</dd></div>
+              <div><dt>Type</dt><dd>{selectedAbility === 'GUARD' ? 'Defense' : 'Attack'}</dd></div>
+            </dl>
           </div>
-          <button className="primary-button" type="button" onClick={useAbility} disabled={!canAct || !hasTarget}>
-            {pending ? 'Resolving…' : 'Confirm'}
-          </button>
+          <div className="target-menu">
+            <p className="panel-prompt">{selectedAbilityDetails?.target === 'SELF' ? 'Target' : 'Select target'}</p>
+            {selectedAbilityDetails?.target === 'SELF' ? (
+              <TargetButton name="Knight" selected disabled={!canAct} onSelect={() => undefined} />
+            ) : combat.enemies.map((enemy) => (
+              <TargetButton
+                key={enemy.entityId}
+                name={displayName(enemy.contentId)}
+                selected={selectedTarget === enemy.entityId}
+                disabled={!canAct || enemy.currentHp === 0}
+                onSelect={() => setSelectedTarget(enemy.entityId)}
+              />
+            ))}
+            <div className="target-menu__footer">
+              <Button className="primary-button" type="button" onClick={useAbility} disabled={!canAct || !hasTarget}>
+                {pending ? 'Resolving…' : 'Confirm action'}
+              </Button>
+            </div>
+          </div>
           {error && (
             <p className="error-message" role="alert">
               {error}
             </p>
           )}
-        </section>
+        </JrpgWindow>
       )}
     </main>
   )

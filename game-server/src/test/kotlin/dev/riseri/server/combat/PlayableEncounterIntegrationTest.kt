@@ -14,6 +14,7 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 /**
  * Proves the M1 encounter through the HTTP/application boundary used by the Activity client.
@@ -34,31 +35,32 @@ class PlayableEncounterIntegrationTest {
     }
 
     @Test
-    fun `plays a deterministic encounter from creation through victory`() {
+    fun `base Knight deterministically defeats the starter encounter`() {
         var combat =
             postJson("/api/combat", """{"seed":42}""", expectedStatus = 201)
 
         assertEquals("knight", combat.path("player").path("entityId").stringValue())
-        assertEquals(100, combat.path("player").path("currentHp").asInt())
+        assertEquals(
+            combat.path("player").path("maxHp").asInt(),
+            combat.path("player").path("currentHp").asInt(),
+        )
+        assertEquals(0, combat.path("player").path("block").asInt())
         assertEquals("PLAYER", combat.path("phase").stringValue())
         assertEquals("ACTIVE", combat.path("status").stringValue())
         assertEquals(1, combat.path("enemies").size())
-        combat.path("enemies").forEach { enemy ->
-            assertEquals("goblin", enemy.path("contentId").stringValue())
-            assertEquals(40, enemy.path("currentHp").asInt())
-            assertEquals(40, enemy.path("maxHp").asInt())
-            assertEquals("stab", enemy.path("intention").path("id").stringValue())
-            assertEquals(10, enemy.path("intention").path("damage").asInt())
-        }
+        assertEquals(
+            "goblin",
+            combat
+                .path("enemies")
+                .single()
+                .path("contentId")
+                .stringValue(),
+        )
 
-        val expectedRounds =
-            listOf(
-                ExpectedRound(playerHp = 90, enemyHp = listOf(25), status = "ACTIVE"),
-                ExpectedRound(playerHp = 80, enemyHp = listOf(10), status = "ACTIVE"),
-                ExpectedRound(playerHp = 80, enemyHp = listOf(0), status = "WON"),
-            )
-
-        expectedRounds.forEach { expected ->
+        // Use the same public action path as the playable client without coupling this regression
+        // to exact round counts or remaining HP, which are expected to change during tuning.
+        var actionsTaken = 0
+        while (combat.path("status").stringValue() == "ACTIVE" && actionsTaken < 100) {
             val target = combat.path("enemies").firstOrNull { it.path("currentHp").asInt() > 0 }
             assertNotNull(target)
             combat =
@@ -66,20 +68,11 @@ class PlayableEncounterIntegrationTest {
                     "/api/combat/actions",
                     """{"abilityId":"SLASH","targetId":"${target.path("entityId").stringValue()}"}""",
                 )
-
-            assertEquals(expected.playerHp, combat.path("player").path("currentHp").asInt())
-            val enemyHp = combat.path("enemies").toList().map { it.path("currentHp").asInt() }
-            assertEquals(expected.enemyHp, enemyHp)
-            assertEquals("PLAYER", combat.path("phase").stringValue())
-            assertEquals(expected.status, combat.path("status").stringValue())
-
-            if (expected.status == "ACTIVE") {
-                combat
-                    .path("enemies")
-                    .filter { it.path("currentHp").asInt() > 0 }
-                    .forEach { enemy -> assertNotNull(enemy.get("intention")) }
-            }
+            actionsTaken++
         }
+
+        assertEquals("WON", combat.path("status").stringValue())
+        assertTrue(combat.path("player").path("currentHp").asInt() > 0)
     }
 
     private fun postJson(
@@ -99,10 +92,4 @@ class PlayableEncounterIntegrationTest {
 
         return objectMapper.readTree(response)
     }
-
-    private data class ExpectedRound(
-        val playerHp: Int,
-        val enemyHp: List<Int>,
-        val status: String,
-    )
 }

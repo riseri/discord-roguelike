@@ -279,9 +279,9 @@ Run:
 
 Do not mark a task complete when required validation fails.
 
-## Visual Review Gate
+## Interactive Review Gate
 
-For any task that materially changes `activity-client` presentation, visual review is required before opening a pull request.
+For any task that materially changes `activity-client` presentation or gameplay flow, interactive user review is required before opening a pull request.
 
 Examples include changes to:
 
@@ -291,21 +291,33 @@ Examples include changes to:
 - responsive behavior
 - animations or transitions
 - new user-facing screens or components
+- navigation or gameplay flow
 
-Before opening a pull request for a UI-affecting task:
+Before opening a pull request for an interactive-review task:
 
-1. Start the required backend and frontend processes locally.
-2. Open the affected flow in a browser.
-3. Exercise the changed user interaction from start to finish.
-4. Capture at least one screenshot of each materially changed state needed to review the work.
-5. Inspect the screenshots for obvious problems in layout, spacing, hierarchy, readability, overflow, contrast, and consistency with the issue's design direction.
-6. Fix obvious visual problems before presenting the work as complete.
-7. Show the final screenshots to the user for visual approval.
-8. Do not open the pull request until the user explicitly approves the visual result.
+1. Run all required automated validation.
+2. Start the required backend and frontend processes locally.
+3. Initialize the application in a deterministic, reproducible state appropriate for the feature being reviewed.
+4. Provide the local URL to the user.
+5. Keep the required development processes running while the user reviews the application.
+6. Allow the user to play through the affected flow from its appropriate starting state.
+7. Fix issues reported during interactive review and restart or refresh the application as necessary.
+8. Wait for explicit user approval before opening the pull request.
 
-Functional tests, linting, and builds do not replace visual review for presentation changes.
+When practical, provide convenient deterministic review states for:
 
-For browser-reviewed UI work, prefer deterministic/reproducible application state when practical so screenshots can be compared meaningfully across iterations.
+- start of a run
+- specific room types
+- combat encounters
+- reward selection
+- victory
+- defeat
+
+Review states must not bypass or duplicate authoritative gameplay rules. Prefer seeded game state or development-only setup mechanisms that exercise the real application flow.
+
+Screenshots may supplement interactive review, especially for responsive layouts or documenting changed states, but they do not replace interactive review when the feature can reasonably be played locally.
+
+Functional tests, linting, and builds do not replace interactive review for presentation or gameplay-flow changes.
 
 Do not treat placeholder art or temporary assets as justification for ignoring layout and presentation quality.
 

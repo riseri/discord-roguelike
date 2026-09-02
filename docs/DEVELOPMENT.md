@@ -62,10 +62,10 @@ The expected workflow is:
     Validation
         |
         v
-    Visual review (when UI presentation changes)
+    Interactive review (when presentation or gameplay flow changes)
         |
         v
-    User approval (when visual review is required)
+    User approval (when interactive review is required)
         |
         v
     Pull Request
@@ -98,25 +98,38 @@ Codex should:
 6. Add or update appropriate tests.
 7. Run required validation.
 8. Review the diff for unrelated changes.
-9. If the task materially changes UI presentation, complete the visual review workflow and wait for user approval.
+9. If the task materially changes UI presentation or gameplay flow, complete the interactive review workflow and wait for user approval.
 10. Push the branch.
 11. Open a pull request against `main`.
 
-## Visual Review Workflow
+## Interactive Review Workflow
 
-UI-affecting work is not considered ready for a pull request solely because linting, builds, or automated tests pass.
+UI-affecting and gameplay-flow work is not considered ready for a pull request solely because linting, builds, or automated tests pass.
 
-For tasks that materially change `activity-client` presentation, Codex must:
+For tasks that materially change `activity-client` presentation or gameplay flow, Codex must:
 
-1. Start the backend and frontend locally as needed for the affected flow.
-2. Open the application in a browser.
-3. Exercise the changed flow from start to finish.
-4. Capture screenshots that show each materially changed state needed for review.
-5. Review those screenshots for obvious issues in layout, spacing, hierarchy, readability, overflow, contrast, responsive behavior, and consistency with the issue's design direction.
-6. Iterate on obvious visual problems before presenting the work.
-7. Show the final screenshots to the user.
+1. Run all required automated validation.
+2. Start the backend and frontend locally as needed for the affected flow.
+3. Initialize the application in a deterministic, reproducible state appropriate for the feature being reviewed.
+4. Provide the local URL to the user.
+5. Keep the required development processes running while the user reviews the application.
+6. Allow the user to play through the affected flow from its appropriate starting state.
+7. Fix issues reported during interactive review and restart or refresh the application as necessary.
 8. Wait for explicit user approval.
 9. Only after approval, push the final branch state if needed and open the pull request.
+
+When practical, provide convenient deterministic review states for:
+
+- start of a run
+- specific room types
+- combat encounters
+- reward selection
+- victory
+- defeat
+
+Review states must not bypass or duplicate authoritative gameplay rules. Prefer seeded game state or development-only setup mechanisms that exercise the real application flow.
+
+Screenshots may supplement interactive review, especially for responsive layouts or documenting changed states, but they do not replace interactive review when the feature can reasonably be played locally.
 
 Examples of work that normally requires this gate:
 
@@ -127,8 +140,11 @@ Examples of work that normally requires this gate:
 - animation or transition changes
 - new user-facing screens
 - significant styling/theme changes
+- navigation changes
+- new room or reward flows
+- changes to how a player starts, continues, wins, or loses a run
 
-Small non-visual frontend changes, such as internal refactors with no presentation impact, do not require screenshot approval unless the issue says otherwise.
+Small non-visual frontend changes, such as internal refactors with no presentation or gameplay-flow impact, do not require interactive approval unless the issue says otherwise.
 
 ## Standard Codex Prompt Template
 
@@ -157,17 +173,16 @@ Use the following as the default prompt for GitHub Issue work:
     - review the diff for unrelated changes
     - verify every acceptance criterion explicitly
 
-    If the task materially changes `activity-client` presentation:
+    If the task materially changes `activity-client` presentation or gameplay flow:
     - start the required backend and frontend processes locally
-    - open the affected flow in a browser
-    - exercise the changed interaction from start to finish
-    - capture screenshots of each materially changed state needed for review
-    - inspect the screenshots for layout, spacing, hierarchy, readability, overflow, contrast, responsive behavior, and consistency with the issue's design direction
-    - iterate on obvious visual problems before presenting the result
-    - show me the final screenshots and wait for my explicit approval
-    - do not open the pull request before I approve the visual result
+    - initialize the application in an appropriate deterministic starting state
+    - provide the local URL so I can play through the affected flow
+    - keep the development processes running while I review it
+    - fix issues I report and restart or refresh the application as necessary
+    - wait for my explicit approval
+    - do not open the pull request before I approve the interactive result
 
-    If visual approval is not required, or after I approve the final UI when it is required:
+    If interactive approval is not required, or after I approve the result when it is required:
     - push the implementation branch
     - open a pull request against `main`
     - include `Closes #<ISSUE_NUMBER>` in the PR description
@@ -207,7 +222,7 @@ A pull request should:
 - mention important design decisions or limitations
 - avoid unrelated changes
 
-For UI-affecting work that requires visual review, the pull request should only be created after the user has approved the final browser screenshots.
+For work that requires interactive review, the pull request should only be created after the user has approved the running application.
 
 Prefer:
 
@@ -244,7 +259,7 @@ Review:
 - tests
 - comments and naming
 - module boundaries
-- final visual result for UI-affecting work
+- final interactive result for presentation or gameplay-flow changes
 
 ## Scope Changes
 

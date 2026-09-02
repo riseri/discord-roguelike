@@ -130,38 +130,60 @@ Examples of work that normally requires this gate:
 
 Small non-visual frontend changes, such as internal refactors with no presentation impact, do not require screenshot approval unless the issue says otherwise.
 
-## Standard Codex Prompt
+## Standard Codex Prompt Template
 
-For tasks without material UI presentation changes, use:
-
-    Implement GitHub issue #<ISSUE_NUMBER>.
-
-    Read and follow `AGENTS.md` and all documentation referenced by the issue.
-
-    Stay within the issue scope and satisfy all acceptance criteria.
-
-    When complete, run the required validation, push the branch, and open a pull request against `main` that closes the issue.
-
-For tasks that materially change UI presentation, use:
+Use the following as the default prompt for GitHub Issue work:
 
     Implement GitHub issue #<ISSUE_NUMBER>.
 
-    Read and follow `AGENTS.md` and all documentation referenced by the issue.
+    Read and follow `AGENTS.md`, `docs/DEVELOPMENT.md`, and all documentation referenced by the issue.
+
+    Treat the GitHub Issue as the task specification. Stay within its scope, satisfy every acceptance criterion, and do not implement behavior listed under Out of Scope.
+
+    Before changing code:
+    - inspect the relevant existing implementation
+    - identify the module that owns the behavior
+    - call out any conflict between the issue, AGENTS.md, documentation, and existing architecture instead of silently choosing one
+
+    During implementation:
+    - follow the repository architecture and dependency direction
+    - keep gameplay rules authoritative in `game-core`
+    - avoid unnecessary abstractions or unrelated refactors
+    - add or update focused tests for the behavior being changed
+    - add comments only for non-obvious intent, constraints, ordering, invariants, or architectural reasoning
+
+    Before considering the task complete:
+    - run all validation required by `AGENTS.md` for every module touched
+    - review the diff for unrelated changes
+    - verify every acceptance criterion explicitly
+
+    If the task materially changes `activity-client` presentation:
+    - start the required backend and frontend processes locally
+    - open the affected flow in a browser
+    - exercise the changed interaction from start to finish
+    - capture screenshots of each materially changed state needed for review
+    - inspect the screenshots for layout, spacing, hierarchy, readability, overflow, contrast, responsive behavior, and consistency with the issue's design direction
+    - iterate on obvious visual problems before presenting the result
+    - show me the final screenshots and wait for my explicit approval
+    - do not open the pull request before I approve the visual result
+
+    If visual approval is not required, or after I approve the final UI when it is required:
+    - push the implementation branch
+    - open a pull request against `main`
+    - include `Closes #<ISSUE_NUMBER>` in the PR description
+    - summarize the implementation, tests, validation performed, and any important design decisions or limitations
+
+Task details should not be duplicated in the prompt because the GitHub Issue remains the authoritative task specification.
+
+For a very small non-UI task, the shortened form is acceptable:
+
+    Implement GitHub issue #<ISSUE_NUMBER>.
+
+    Read and follow `AGENTS.md`, `docs/DEVELOPMENT.md`, and all documentation referenced by the issue.
 
     Stay within the issue scope and satisfy all acceptance criteria.
 
-    Because this task changes the UI, run the application locally and inspect the affected flow in a browser.
-
-    Before opening a pull request:
-    - exercise the changed flow
-    - capture screenshots of the final UI states needed for review
-    - review the result for obvious visual problems
-    - iterate on any obvious issues
-    - show me the final screenshots for approval
-
-    Do not open the pull request until I explicitly approve the visual result.
-
-Task details should not be duplicated in the prompt because the GitHub Issue is the task specification.
+    Run the required validation, review the diff, push the branch, and open a pull request against `main` that includes `Closes #<ISSUE_NUMBER>`.
 
 ## Branches
 

@@ -67,7 +67,7 @@ class PlayableEncounterIntegrationTest {
                 postJson(
                     "/api/combat/actions",
                     """{"abilityId":"SLASH","targetId":"${target.path("entityId").stringValue()}"}""",
-                )
+                ).path("state")
             actionsTaken++
         }
 

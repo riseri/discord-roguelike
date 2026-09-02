@@ -6,6 +6,7 @@ import dev.riseri.core.combat.CombatState
 import dev.riseri.core.combat.CombatStatus
 import dev.riseri.core.combat.EnemyCombatState
 import dev.riseri.core.combat.EnemyIntention
+import dev.riseri.core.combat.GameEvent
 import dev.riseri.core.combat.KnightAbilityValues
 import dev.riseri.core.combat.PlayerCombatState
 import org.springframework.http.HttpStatus
@@ -26,6 +27,103 @@ data class UseAbilityRequest(
     val abilityId: AbilityId,
     val targetId: String,
 )
+
+data class CombatActionResponse(
+    val state: CombatResponse,
+    val events: List<CombatEventResponse>,
+) {
+    companion object {
+        fun from(
+            state: CombatState,
+            events: List<GameEvent>,
+        ) = CombatActionResponse(
+            state = CombatResponse.from(state),
+            events = events.map(CombatEventResponse::from),
+        )
+    }
+}
+
+/** Explicit transport shape for core events; nullable fields are populated only for their type. */
+data class CombatEventResponse(
+    val type: String,
+    val actorId: String? = null,
+    val abilityId: AbilityId? = null,
+    val sourceId: String? = null,
+    val targetId: String? = null,
+    val entityId: String? = null,
+    val enemyId: String? = null,
+    val intention: IntentionResponse? = null,
+    val intentionId: String? = null,
+    val amount: Int? = null,
+) {
+    companion object {
+        fun from(event: GameEvent): CombatEventResponse =
+            when (event) {
+                is GameEvent.AbilityUsed -> {
+                    CombatEventResponse(
+                        type = "ABILITY_USED",
+                        actorId = event.actorId.value,
+                        abilityId = event.abilityId,
+                        targetId = event.targetId.value,
+                    )
+                }
+
+                is GameEvent.DamageDealt -> {
+                    CombatEventResponse(
+                        type = "DAMAGE_DEALT",
+                        sourceId = event.sourceId.value,
+                        targetId = event.targetId.value,
+                        amount = event.amount,
+                    )
+                }
+
+                is GameEvent.BlockGained -> {
+                    CombatEventResponse(
+                        type = "BLOCK_GAINED",
+                        entityId = event.entityId.value,
+                        amount = event.amount,
+                    )
+                }
+
+                is GameEvent.EnemyIntentionGenerated -> {
+                    CombatEventResponse(
+                        type = "ENEMY_INTENTION_GENERATED",
+                        enemyId = event.enemyId.value,
+                        intention = IntentionResponse.from(event.intention),
+                    )
+                }
+
+                is GameEvent.EnemyActionUsed -> {
+                    CombatEventResponse(
+                        type = "ENEMY_ACTION_USED",
+                        enemyId = event.enemyId.value,
+                        intentionId = event.intentionId.value,
+                        targetId = event.targetId.value,
+                    )
+                }
+
+                is GameEvent.BlockAbsorbed -> {
+                    CombatEventResponse(
+                        type = "BLOCK_ABSORBED",
+                        entityId = event.entityId.value,
+                        amount = event.amount,
+                    )
+                }
+
+                is GameEvent.EntityDefeated -> {
+                    CombatEventResponse(type = "ENTITY_DEFEATED", entityId = event.entityId.value)
+                }
+
+                GameEvent.CombatWon -> {
+                    CombatEventResponse(type = "COMBAT_WON")
+                }
+
+                GameEvent.CombatLost -> {
+                    CombatEventResponse(type = "COMBAT_LOST")
+                }
+            }
+    }
+}
 
 data class CombatResponse(
     val player: PlayerResponse,
@@ -142,7 +240,7 @@ class CombatController(
     @PostMapping("/actions")
     fun useAbility(
         @RequestBody request: UseAbilityRequest,
-    ): CombatResponse = combatService.useAbility(request)
+    ): CombatActionResponse = combatService.useAbility(request)
 }
 
 @RestControllerAdvice

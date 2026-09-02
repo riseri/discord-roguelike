@@ -53,7 +53,7 @@ class CombatService(
     fun get(): CombatResponse = CombatResponse.from(state ?: throw NoActiveCombatException())
 
     @Synchronized
-    fun useAbility(request: UseAbilityRequest): CombatResponse {
+    fun useAbility(request: UseAbilityRequest): CombatActionResponse {
         val currentState = state ?: throw NoActiveCombatException()
         val targetId =
             try {
@@ -72,6 +72,6 @@ class CombatService(
         // Assign only after the core transition succeeds so rejected actions cannot corrupt the
         // encounter that the client can subsequently read or retry.
         state = result.state
-        return CombatResponse.from(result.state)
+        return CombatActionResponse.from(result.state, result.events)
     }
 }

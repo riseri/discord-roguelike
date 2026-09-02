@@ -279,6 +279,36 @@ Run:
 
 Do not mark a task complete when required validation fails.
 
+## Visual Review Gate
+
+For any task that materially changes `activity-client` presentation, visual review is required before opening a pull request.
+
+Examples include changes to:
+
+- layout
+- styling
+- combat presentation
+- responsive behavior
+- animations or transitions
+- new user-facing screens or components
+
+Before opening a pull request for a UI-affecting task:
+
+1. Start the required backend and frontend processes locally.
+2. Open the affected flow in a browser.
+3. Exercise the changed user interaction from start to finish.
+4. Capture at least one screenshot of each materially changed state needed to review the work.
+5. Inspect the screenshots for obvious problems in layout, spacing, hierarchy, readability, overflow, contrast, and consistency with the issue's design direction.
+6. Fix obvious visual problems before presenting the work as complete.
+7. Show the final screenshots to the user for visual approval.
+8. Do not open the pull request until the user explicitly approves the visual result.
+
+Functional tests, linting, and builds do not replace visual review for presentation changes.
+
+For browser-reviewed UI work, prefer deterministic/reproducible application state when practical so screenshots can be compared meaningfully across iterations.
+
+Do not treat placeholder art or temporary assets as justification for ignoring layout and presentation quality.
+
 ## Generated Project State
 
 Do not manually modify generated project-state documentation if such files are introduced.

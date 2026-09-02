@@ -207,10 +207,11 @@ export function TargetButton({ name, selected, disabled, onSelect }: TargetButto
 interface ResultWindowProps {
   status: 'WON' | 'LOST'
   pending: boolean
-  onRestart: () => void
+  actionLabel?: string
+  onContinue: () => void
 }
 
-export function ResultWindow({ status, pending, onRestart }: ResultWindowProps) {
+export function ResultWindow({ status, pending, actionLabel = 'Continue', onContinue }: ResultWindowProps) {
   const won = status === 'WON'
 
   return (
@@ -223,8 +224,8 @@ export function ResultWindow({ status, pending, onRestart }: ResultWindowProps) 
             {won ? 'The road ahead is clear.' : 'The Knight has fallen.'}
           </DialogDescription>
         </DialogHeader>
-        <Button className="secondary-button" type="button" onClick={onRestart} disabled={pending}>
-          {pending ? 'Preparing…' : 'Start another encounter'}
+        <Button className="secondary-button" type="button" onClick={onContinue} disabled={pending}>
+          {pending ? 'Loading…' : actionLabel}
         </Button>
       </DialogContent>
     </Dialog>

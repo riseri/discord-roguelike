@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { ShieldIcon, SwordIcon } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { DoorOpenIcon, MapPinIcon, ShieldIcon, SparklesIcon, SwordIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import './App.css'
@@ -17,6 +17,18 @@ import {
 
 type AbilityId = 'SLASH' | 'GUARD'
 type CombatStatus = 'ACTIVE' | 'WON' | 'LOST'
+type RunScreen = 'LOADING' | 'NO_RUN' | 'CURRENT_ROOM' | 'COMBAT' | 'ROOM_COMPLETE' | 'RUN_COMPLETE'
+
+interface RunState {
+  seed: number
+  status: 'ACTIVE' | 'WON' | 'LOST'
+  playerHp: number
+  playerMaxHp: number
+  currentRoomId: string
+  completedRoomIds: string[]
+  ownedRelicIds: string[]
+  rngState: number
+}
 
 interface PlayerState {
   entityId: string
@@ -54,6 +66,7 @@ interface Ability {
 }
 
 interface ApiError {
+  code?: string
   message?: string
 }
 
@@ -83,12 +96,25 @@ function displayName(identifier: string) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-async function requestCombat<T>(
+class ApiRequestError extends Error {
+  readonly code?: string
+
+  constructor(
+    message: string,
+    code?: string,
+  ) {
+    super(message)
+    this.code = code
+  }
+}
+
+async function requestApi<T>(
   path: string,
+  method: 'GET' | 'POST',
   body?: Record<string, string | number>,
 ): Promise<T> {
   const response = await fetch(path, {
-    method: 'POST',
+    method,
     ...(body && {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -97,7 +123,10 @@ async function requestCombat<T>(
 
   if (!response.ok) {
     const error = (await response.json().catch(() => ({}))) as ApiError
-    throw new Error(error.message || 'The server could not complete that action.')
+    throw new ApiRequestError(
+      error.message || 'The server could not complete that action.',
+      error.code,
+    )
   }
 
   return (await response.json()) as T
@@ -168,6 +197,8 @@ function eventMessage(event: CombatEvent, state: CombatState) {
 }
 
 function App() {
+  const [screen, setScreen] = useState<RunScreen>('LOADING')
+  const [run, setRun] = useState<RunState | null>(null)
   const [combat, setCombat] = useState<CombatState | null>(null)
   const [selectedAbility, setSelectedAbility] = useState<AbilityId>('SLASH')
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null)
@@ -176,14 +207,84 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const actionInFlight = useRef(false)
 
-  const beginCombat = async () => {
+  const selectInitialTarget = (nextCombat: CombatState) => {
+    setSelectedTarget(nextCombat.enemies.find((enemy) => enemy.currentHp > 0)?.entityId ?? null)
+  }
+
+  const showAuthoritativeRun = (nextRun: RunState) => {
+    setRun(nextRun)
+    setCombat(null)
+    setScreen(
+      nextRun.status !== 'ACTIVE'
+        ? 'RUN_COMPLETE'
+        : nextRun.completedRoomIds.includes(nextRun.currentRoomId) ? 'ROOM_COMPLETE' : 'CURRENT_ROOM',
+    )
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadCurrentState = async () => {
+      try {
+        const currentRun = await requestApi<RunState>('/api/runs/current', 'GET')
+        if (cancelled) return
+        setRun(currentRun)
+
+        if (currentRun.completedRoomIds.includes(currentRun.currentRoomId)) {
+          setScreen('ROOM_COMPLETE')
+          return
+        }
+
+        try {
+          const currentCombat = await requestApi<CombatState>('/api/combat', 'GET')
+          if (cancelled) return
+          setCombat(currentCombat)
+          selectInitialTarget(currentCombat)
+          setScreen('COMBAT')
+        } catch (requestError) {
+          if (cancelled) return
+          if (requestError instanceof ApiRequestError && requestError.code === 'NO_ACTIVE_COMBAT') {
+            setScreen('CURRENT_ROOM')
+          } else {
+            throw requestError
+          }
+        }
+      } catch (requestError) {
+        if (cancelled) return
+        if (requestError instanceof ApiRequestError && requestError.code === 'NO_ACTIVE_RUN') {
+          setScreen('NO_RUN')
+        } else {
+          setError(requestError instanceof Error ? requestError.message : 'Unable to reach the game server.')
+          setScreen('NO_RUN')
+        }
+      }
+    }
+
+    void loadCurrentState()
+    return () => { cancelled = true }
+  }, [])
+
+  const startRun = async () => {
     setPending(true)
     setError(null)
     try {
-      await requestCombat('/api/runs')
-      const nextCombat = await requestCombat<CombatState>('/api/combat')
+      const nextRun = await requestApi<RunState>('/api/runs', 'POST')
+      showAuthoritativeRun(nextRun)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to reach the game server.')
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const enterCombat = async () => {
+    setPending(true)
+    setError(null)
+    try {
+      const nextCombat = await requestApi<CombatState>('/api/combat', 'POST')
       setCombat(nextCombat)
-      setSelectedTarget(nextCombat.enemies.find((enemy) => enemy.currentHp > 0)?.entityId ?? null)
+      selectInitialTarget(nextCombat)
+      setScreen('COMBAT')
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to reach the game server.')
     } finally {
@@ -205,7 +306,7 @@ function App() {
     setPending(true)
     setError(null)
     try {
-      const result = await requestCombat<CombatActionResponse>('/api/combat/actions', {
+      const result = await requestApi<CombatActionResponse>('/api/combat/actions', 'POST', {
         abilityId: selectedAbility,
         targetId,
       })
@@ -239,22 +340,101 @@ function App() {
     }
   }
 
-  if (!combat) {
+  const leaveCombat = async () => {
+    setPending(true)
+    setError(null)
+    try {
+      const currentRun = await requestApi<RunState>('/api/runs/current', 'GET')
+      showAuthoritativeRun(currentRun)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to reach the game server.')
+    } finally {
+      setPending(false)
+    }
+  }
+
+  if (screen === 'LOADING') {
     return (
-      <main className="combat-shell combat-shell--welcome">
-        <JrpgWindow as="section" className="welcome-window">
+      <main className="run-shell run-shell--centered" aria-busy="true">
+        <JrpgWindow as="section" className="run-window run-window--loading">
+          <div className="crest crest--loading" aria-hidden="true">✦</div>
+          <p className="eyebrow">Discord Roguelike</p>
+          <h1>Loading expedition…</h1>
+        </JrpgWindow>
+      </main>
+    )
+  }
+
+  if (screen === 'NO_RUN') {
+    return (
+      <main className="run-shell run-shell--centered">
+        <JrpgWindow as="section" className="run-window run-window--welcome">
           <div className="crest" aria-hidden="true">✦</div>
           <p className="eyebrow">Discord Roguelike</p>
-          <h1>Goblin Ambush</h1>
-          <p className="intro">Steel your resolve. The old dungeon road is no longer safe.</p>
-          <Button className="primary-button" type="button" onClick={beginCombat} disabled={pending}>
-            {pending ? 'Preparing encounter…' : 'Enter battle'}
+          <h1>A Road Into Ruin</h1>
+          <p className="intro">Take up the Knight&apos;s shield and begin a short expedition into the old dungeon road.</p>
+          <Button className="primary-button" type="button" onClick={startRun} disabled={pending}>
+            {pending ? 'Starting expedition…' : 'Start run'}
           </Button>
           {error && <p className="error-message" role="alert">{error}</p>}
         </JrpgWindow>
       </main>
     )
   }
+
+  if (run && (screen === 'CURRENT_ROOM' || screen === 'ROOM_COMPLETE' || screen === 'RUN_COMPLETE')) {
+    const roomComplete = screen === 'ROOM_COMPLETE'
+    const runComplete = screen === 'RUN_COMPLETE'
+    return (
+      <main className="run-shell">
+        <JrpgWindow as="header" className="run-header">
+          <div>
+            <p className="eyebrow">Knight expedition</p>
+            <strong>Run {String(run.seed).slice(-6)}</strong>
+          </div>
+          <div className="run-header__vital" aria-label={`Knight health ${run.playerHp} of ${run.playerMaxHp}`}>
+            <ShieldIcon size={17} aria-hidden="true" />
+            <span>HP</span>
+            <strong>{run.playerHp} / {run.playerMaxHp}</strong>
+          </div>
+        </JrpgWindow>
+
+        <section className="room-stage" aria-labelledby="room-title">
+          <div className="room-stage__sun" aria-hidden="true" />
+          <JrpgWindow as="section" className={`room-window${roomComplete ? ' room-window--complete' : ''}${runComplete ? ' room-window--failed' : ''}`}>
+            <div className="room-icon" aria-hidden="true">
+              {roomComplete ? <SparklesIcon size={28} /> : runComplete ? <ShieldIcon size={28} /> : <MapPinIcon size={28} />}
+            </div>
+            <p className="eyebrow">{roomComplete ? 'Room complete' : runComplete ? 'Run ended' : 'Current room'}</p>
+            <h1 id="room-title">{roomComplete ? 'The Road Is Clear' : runComplete ? 'The Knight Has Fallen' : 'Goblin Ambush'}</h1>
+            <p className="room-location">The Old Dungeon Road</p>
+            <Separator className="room-separator" />
+            <p className="intro">
+              {roomComplete
+                ? 'The goblins are defeated. Your expedition is safe here while the next path is prepared.'
+                : runComplete
+                  ? 'The old road has claimed this expedition. Your progress ends here.'
+                : 'Goblins block the path ahead. Steel your resolve before stepping into the encounter.'}
+            </p>
+            {!roomComplete && !runComplete && (
+              <Button className="primary-button room-action" type="button" onClick={enterCombat} disabled={pending}>
+                <DoorOpenIcon size={16} aria-hidden="true" />
+                {pending ? 'Entering combat…' : 'Enter combat'}
+              </Button>
+            )}
+            {error && <p className="error-message" role="alert">{error}</p>}
+          </JrpgWindow>
+        </section>
+
+        <footer className="run-footer">
+          <span>Room · {displayName(run.currentRoomId)}</span>
+          <span>{roomComplete ? 'Encounter cleared' : runComplete ? 'Expedition ended' : 'Combat ahead'}</span>
+        </footer>
+      </main>
+    )
+  }
+
+  if (!combat) return null
 
   const selectedAbilityDetails = combat.abilities.find(({ id }) => id === selectedAbility)
   const canAct = combat.status === 'ACTIVE' && combat.phase === 'PLAYER' && !pending
@@ -275,7 +455,14 @@ function App() {
         <span className="encounter-kind">Solo encounter</span>
       </JrpgWindow>
 
-      {combat.status !== 'ACTIVE' && <ResultWindow status={combat.status} pending={pending} onRestart={beginCombat} />}
+      {combat.status !== 'ACTIVE' && (
+        <ResultWindow
+          status={combat.status}
+          pending={pending}
+          actionLabel={combat.status === 'WON' ? 'Review cleared room' : 'View run result'}
+          onContinue={leaveCombat}
+        />
+      )}
 
       <section className="battlefield" aria-label="Combatants">
         <div className="battlefield__glow" aria-hidden="true" />

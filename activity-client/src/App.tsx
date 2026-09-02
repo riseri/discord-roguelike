@@ -85,12 +85,14 @@ function displayName(identifier: string) {
 
 async function requestCombat<T>(
   path: string,
-  body: Record<string, string | number>,
+  body?: Record<string, string | number>,
 ): Promise<T> {
   const response = await fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    ...(body && {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
   })
 
   if (!response.ok) {
@@ -178,7 +180,8 @@ function App() {
     setPending(true)
     setError(null)
     try {
-      const nextCombat = await requestCombat<CombatState>('/api/combat', { seed: 9 })
+      await requestCombat('/api/runs')
+      const nextCombat = await requestCombat<CombatState>('/api/combat')
       setCombat(nextCombat)
       setSelectedTarget(nextCombat.enemies.find((enemy) => enemy.currentHp > 0)?.entityId ?? null)
     } catch (requestError) {

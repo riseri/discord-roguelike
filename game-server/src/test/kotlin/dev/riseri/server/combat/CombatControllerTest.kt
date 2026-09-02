@@ -1,6 +1,7 @@
 package dev.riseri.server.combat
 
 import dev.riseri.server.content.EnemyDataLoader
+import dev.riseri.server.run.RunService
 import org.hamcrest.Matchers.hasSize
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
@@ -16,11 +17,14 @@ import kotlin.test.assertEquals
 
 class CombatControllerTest {
     private val objectMapper = ObjectMapper()
+    private lateinit var runService: RunService
     private lateinit var mockMvc: MockMvc
 
     @BeforeTest
     fun setUp() {
-        val service = CombatService(EnemyDataLoader())
+        runService = RunService()
+        runService.start(42)
+        val service = CombatService(EnemyDataLoader(), runService)
         mockMvc =
             MockMvcBuilders
                 .standaloneSetup(CombatController(service))
@@ -33,8 +37,7 @@ class CombatControllerTest {
         mockMvc
             .perform(
                 post("/api/combat")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"seed":42}"""),
+                    .contentType(MediaType.APPLICATION_JSON),
             ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.player.entityId").value("knight"))
             .andExpect(jsonPath("$.player.currentHp").value(100))
@@ -57,13 +60,27 @@ class CombatControllerTest {
     }
 
     @Test
+    fun `requires an active run before combat can start`() {
+        val service = CombatService(EnemyDataLoader(), RunService())
+        val controller =
+            MockMvcBuilders
+                .standaloneSetup(CombatController(service))
+                .setControllerAdvice(CombatExceptionHandler())
+                .build()
+
+        controller
+            .perform(post("/api/combat"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.code").value("NO_ACTIVE_RUN"))
+    }
+
+    @Test
     fun `valid ability action returns fully resolved authoritative state`() {
         val startResponse =
             mockMvc
                 .perform(
                     post("/api/combat")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""{"seed":42}"""),
+                        .contentType(MediaType.APPLICATION_JSON),
                 ).andReturn()
                 .response.contentAsString
         val enemies = objectMapper.readTree(startResponse).get("enemies")
@@ -98,14 +115,15 @@ class CombatControllerTest {
             .andExpect(jsonPath("$.events[2].type").value("ENEMY_ACTION_USED"))
             .andExpect(jsonPath("$.events[3].type").value("DAMAGE_DEALT"))
             .andExpect(jsonPath("$.events[4].type").value("ENEMY_INTENTION_GENERATED"))
+
+        assertEquals(expectedPlayerHp, runService.current().playerHp)
     }
 
     @Test
     fun `invalid action returns client error without changing encounter`() {
         mockMvc.perform(
             post("/api/combat")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"seed":42}"""),
+                .contentType(MediaType.APPLICATION_JSON),
         )
         val before =
             mockMvc

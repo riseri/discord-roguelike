@@ -1,6 +1,12 @@
 package dev.riseri.core.run
 
+import dev.riseri.core.combat.Block
+import dev.riseri.core.combat.CombatRngState
+import dev.riseri.core.combat.CombatState
+import dev.riseri.core.combat.CombatStatus
+import dev.riseri.core.combat.EntityId
 import dev.riseri.core.combat.HitPoints
+import dev.riseri.core.combat.PlayerCombatState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -70,6 +76,35 @@ class RunStateTest {
     fun `rejects blank room and relic identifiers`() {
         assertFailsWith<IllegalArgumentException> { RoomId(" ") }
         assertFailsWith<IllegalArgumentException> { RelicId("") }
+    }
+
+    @Test
+    fun `rejects active combat state that diverges from its run`() {
+        val combat =
+            CombatState(
+                player =
+                    PlayerCombatState(
+                        entityId = EntityId("knight"),
+                        currentHp = HitPoints(90),
+                        maxHp = HitPoints(100),
+                        block = Block(0),
+                    ),
+                enemies = emptyList(),
+                rngState = CombatRngState(42),
+            )
+
+        assertFailsWith<IllegalArgumentException> {
+            RunState.initial(RunSeed(42)).copy(activeCombat = combat)
+        }
+
+        val lostCombat =
+            combat.copy(
+                player = combat.player.copy(currentHp = HitPoints(0)),
+                status = CombatStatus.LOST,
+            )
+        assertFailsWith<IllegalArgumentException> {
+            RunState.initial(RunSeed(42)).copy(playerHp = HitPoints(0), activeCombat = lostCombat)
+        }
     }
 
     private fun runState(

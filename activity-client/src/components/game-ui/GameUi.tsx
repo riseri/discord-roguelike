@@ -10,7 +10,7 @@ import {
 import { Progress } from '@/components/ui/progress'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
-type WindowElement = 'div' | 'header' | 'section'
+type WindowElement = 'div' | 'header' | 'section' | 'aside'
 
 interface JrpgWindowProps {
   as?: WindowElement

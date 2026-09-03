@@ -132,3 +132,55 @@ button:focus-visible, .enemy-combatant:has(input:focus-visible) { outline: 3px s
 @media (max-width: 390px) {
   .command-detail { grid-column: 1; }
 }
+
+/* Tactical encounter: the board is presentation-only; highlighted destinations come from core. */
+.combat-shell { grid-template-rows: auto minmax(440px, 1fr) auto; }
+.tactical-layout { position: relative; display: grid; grid-template-columns: minmax(190px, 240px) minmax(420px, 760px); place-content: center; gap: 24px; min-height: 0; overflow: hidden; border-inline: 1px solid var(--game-border); background: radial-gradient(circle at 65% 34%, rgb(218 167 78 / .16), transparent 35%), linear-gradient(160deg, #253b45, #132329 68%); }
+.tactical-layout::before { content: ""; position: absolute; inset: 0; opacity: .2; background-image: linear-gradient(45deg, transparent 48%, #d9bd78 49% 51%, transparent 52%); background-size: 48px 48px; pointer-events: none; }
+.tactical-roster { align-self: center; display: grid; z-index: 1; gap: 9px; padding: 10px; }
+.tactical-roster .combatant-status { border-width: 1px; }
+.tactical-roster .enemy-status--selected { border-color: var(--color-selection); box-shadow: 0 0 0 2px rgb(255 226 121 / .18); }
+.tactical-board { --grid-columns: 8; position: relative; isolation: isolate; display: grid; grid-template-columns: repeat(var(--grid-columns), minmax(42px, 1fr)); align-self: center; justify-self: center; width: auto; max-width: 760px; height: min(420px, calc(100svh - 400px)); aspect-ratio: 8 / 6; border: 4px solid #c3a35c; outline: 1px solid #473918; box-shadow: 0 26px 55px rgb(0 0 0 / .42), inset 0 0 40px rgb(0 0 0 / .2); transform: perspective(900px) rotateX(4deg); }
+.tactical-tile { position: relative; display: grid; place-items: center; min-width: 0; border: 1px solid rgb(216 223 181 / .16); border-radius: 0; padding: 0; color: white; background: rgb(81 105 76 / .78); cursor: default; }
+.tactical-tile:nth-child(16n + 1), .tactical-tile:nth-child(16n + 3), .tactical-tile:nth-child(16n + 5), .tactical-tile:nth-child(16n + 7), .tactical-tile:nth-child(16n + 10), .tactical-tile:nth-child(16n + 12), .tactical-tile:nth-child(16n + 14), .tactical-tile:nth-child(16n + 16) { background: rgb(67 91 65 / .85); }
+.tactical-tile--reachable { background: rgb(53 113 147 / .9) !important; box-shadow: inset 0 0 0 2px rgb(126 213 255 / .3); cursor: pointer; }
+.tactical-tile--reachable:hover { filter: brightness(1.22); }
+.tactical-tile--selected { box-shadow: inset 0 0 0 4px #ffd76a, 0 0 18px #ffd76a; }
+.tactical-unit { position: absolute; z-index: 2; display: grid; justify-items: center; width: 86%; min-width: 42px; padding: 8px 3px 5px; border: 2px solid; border-radius: 42% 42% 12px 12px; text-shadow: 0 2px #18202f; filter: drop-shadow(0 7px 4px rgb(0 0 0 / .38)); }
+.tactical-unit b { overflow: hidden; width: 100%; font-size: clamp(.48rem, 1vw, .72rem); text-overflow: ellipsis; white-space: nowrap; }
+.tactical-unit small { font-size: .55rem; }
+.tactical-unit--knight { border-color: #f6d77b; background: linear-gradient(#8199b8, #2c4b74); }
+.tactical-unit--enemy { border-color: #d9936c; background: linear-gradient(#8aa557, #435b37); cursor: pointer; }
+.intent-pip { position: absolute; top: -18px; display: grid; place-items: center; width: 27px; height: 27px; border: 2px solid #ffe2a2; border-radius: 50%; background: #8c3f43; font-size: .7rem; font-weight: 900; }
+.tactical-legend { position: absolute; right: 24px; bottom: 10px; z-index: 1; display: flex; justify-content: center; gap: 22px; color: #dbe1df; font-size: .68rem; font-weight: 700; text-transform: uppercase; }
+.tactical-legend span { display: flex; align-items: center; gap: 7px; }
+.legend-swatch { width: 14px; height: 14px; border: 2px solid; }
+.legend-swatch--move { border-color: #7ed5ff; background: #357193; }
+.legend-swatch--target { border-color: #ffd76a; background: #4d5d3f; }
+.tactical-actions { grid-template-columns: minmax(250px, .9fr) minmax(360px, 1.2fr) minmax(240px, .8fr); min-height: 218px; }
+.move-hint { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; color: #92d9ff; font-size: .7rem; }
+.tactical-confirm { justify-content: center; text-align: center; }
+.tactical-confirm .target-menu__footer { margin: 12px -18px -16px; }
+
+@media (max-width: 860px) {
+  .combat-shell { height: auto; min-height: 100svh; }
+  .tactical-layout { grid-template-columns: 1fr; gap: 12px; padding: 12px; }
+  .tactical-roster { grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .tactical-board { width: min(100%, 680px); height: auto; }
+  .tactical-legend { position: static; grid-column: 1; }
+  .tactical-actions { grid-template-columns: 220px 1fr; }
+  .tactical-confirm { grid-column: 1 / -1; }
+}
+
+@media (max-width: 590px) {
+  .tactical-layout { overflow: visible; }
+  .tactical-roster { order: 2; grid-template-columns: 1fr; }
+  .tactical-board { order: 1; grid-template-columns: repeat(var(--grid-columns), minmax(34px, 1fr)); }
+  .tactical-legend { order: 3; }
+  .tactical-unit { min-width: 30px; padding: 5px 1px 3px; }
+  .tactical-unit svg { width: 15px; }
+  .tactical-unit b { font-size: .42rem; }
+  .intent-pip { top: -14px; width: 22px; height: 22px; }
+  .tactical-actions { grid-template-columns: 1fr; }
+  .tactical-confirm { grid-column: 1; }
+}

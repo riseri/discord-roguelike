@@ -3,6 +3,7 @@ package dev.riseri.server.combat
 import dev.riseri.core.combat.CombatState
 import dev.riseri.core.combat.EntityId
 import dev.riseri.core.combat.GameAction
+import dev.riseri.core.combat.GridPosition
 import dev.riseri.core.combat.InvalidActionException
 import dev.riseri.core.run.InvalidRunCombatException
 import dev.riseri.server.content.EnemyDataLoader
@@ -37,13 +38,21 @@ class CombatService(
         if (runService.currentState().activeCombat == null) {
             throw NoActiveCombatException()
         }
-        val targetId =
-            try {
-                EntityId(request.targetId)
-            } catch (exception: IllegalArgumentException) {
-                throw InvalidCombatActionException("INVALID_TARGET", exception.message.orEmpty())
+        val action =
+            if (request.destination != null) {
+                GameAction.MoveUnit(GridPosition(request.destination.x, request.destination.y))
+            } else {
+                val targetId =
+                    try {
+                        EntityId(request.targetId ?: "")
+                    } catch (exception: IllegalArgumentException) {
+                        throw InvalidCombatActionException("INVALID_TARGET", exception.message.orEmpty())
+                    }
+                GameAction.UseAbility(
+                    request.abilityId ?: throw InvalidCombatActionException("INVALID_ABILITY", "Ability is required"),
+                    targetId,
+                )
             }
-        val action = GameAction.UseAbility(request.abilityId, targetId)
         val result =
             try {
                 runService.executeCombat(action, enemyDefinitions)

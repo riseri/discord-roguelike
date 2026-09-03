@@ -68,7 +68,7 @@ object RunCombatEngine {
 
     fun execute(
         state: RunState,
-        action: GameAction.UseAbility,
+        action: GameAction,
         enemyDefinitions: Map<EnemyContentId, EnemyDefinition>,
     ): RunCombatActionResult {
         if (state.status != RunStatus.ACTIVE) {

@@ -44,7 +44,7 @@ class RunService {
 
     @Synchronized
     internal fun executeCombat(
-        action: GameAction.UseAbility,
+        action: GameAction,
         enemyDefinitions: Map<EnemyContentId, EnemyDefinition>,
     ): RunCombatActionResult {
         val result = RunCombatEngine.execute(state ?: throw NoActiveRunException(), action, enemyDefinitions)

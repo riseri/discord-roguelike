@@ -20,7 +20,7 @@ object EncounterGenerator {
     private const val ENEMIES_PER_ENCOUNTER = 2
     private val STARTER_ENEMY_CONTENT_ID = EnemyContentId("goblin")
 
-    /** Creates the single-Goblin baseline encounter used to start the M1 playable combat. */
+    /** Creates the fixed two-Goblin tactical encounter used by the playable vertical slice. */
     fun generateStarter(
         enemyDefinitions: Collection<EnemyDefinition>,
         rngState: CombatRngState,
@@ -30,7 +30,13 @@ object EncounterGenerator {
                 ?: throw IllegalArgumentException("Starter encounter requires the goblin enemy definition")
 
         return EncounterGenerationResult(
-            encounter = CombatEncounter(listOf(goblin.createCombatState(EntityId("goblin-1")))),
+            encounter =
+                CombatEncounter(
+                    listOf(
+                        goblin.createCombatState(EntityId("goblin-1")).copy(position = GridPosition(6, 1)),
+                        goblin.createCombatState(EntityId("goblin-2")).copy(position = GridPosition(6, 4)),
+                    ),
+                ),
             // The fixed starter composition makes no random selection. Preserving the state keeps
             // subsequent intention generation reproducible from the run's original seed.
             nextRngState = rngState,

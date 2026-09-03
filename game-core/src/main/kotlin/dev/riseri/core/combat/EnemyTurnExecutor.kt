@@ -45,14 +45,35 @@ object EnemyTurnExecutor {
 
         // List order is combat order. This makes multi-enemy resolution deterministic and ensures
         // the first lethal action prevents every later enemy from acting.
-        val resolvedEnemies =
-            state.enemies.map { enemy ->
-                val intention = enemy.currentIntention
-                // Once the player is defeated, later enemies must keep their unresolved intentions
-                // rather than continuing to act against an already terminal combat.
-                if (player.currentHp.value == 0 || enemy.currentHp.value == 0 || intention == null) {
-                    enemy
-                } else {
+        val resolvedEnemies = mutableListOf<EnemyCombatState>()
+        state.enemies.forEachIndexed { enemyIndex, enemy ->
+            val intention = enemy.currentIntention
+            // Once the player is defeated, later enemies must keep their unresolved intentions
+            // rather than continuing to act against an already terminal combat.
+            if (player.currentHp.value == 0 || enemy.currentHp.value == 0 || intention == null) {
+                resolvedEnemies += enemy
+            } else if (enemy.stunnedTurns > 0) {
+                resolvedEnemies += enemy.copy(stunnedTurns = enemy.stunnedTurns - 1, currentIntention = null)
+            } else {
+                var actingEnemy = enemy
+                if (TacticalMovement.distance(enemy.position, player.position) > 1) {
+                    val occupied =
+                        buildSet {
+                            add(player.position)
+                            state.enemies
+                                .filterIndexed { index, other -> index > enemyIndex && other.currentHp.value > 0 }
+                                .forEach { add(it.position) }
+                            resolvedEnemies.filter { it.currentHp.value > 0 }.forEach { add(it.position) }
+                        }
+                    val goals = TacticalMovement.adjacent(player.position).filter(state.grid::contains).toSet()
+                    val path = TacticalMovement.path(state.grid, enemy.position, goals, occupied)
+                    val destination = path?.take(CombatState.ENEMY_MOVEMENT)?.lastOrNull()
+                    if (destination != null) {
+                        events += GameEvent.EntityMoved(enemy.entityId, enemy.position, destination)
+                        actingEnemy = enemy.copy(position = destination)
+                    }
+                }
+                if (TacticalMovement.distance(actingEnemy.position, player.position) == 1) {
                     events +=
                         GameEvent.EnemyActionUsed(
                             enemyId = enemy.entityId,
@@ -62,9 +83,10 @@ object EnemyTurnExecutor {
                     val damageResult = applyDamage(player, enemy.entityId, intention.damage)
                     player = damageResult.player
                     events += damageResult.events
-                    enemy.copy(currentIntention = null)
                 }
+                resolvedEnemies += actingEnemy.copy(currentIntention = null)
             }
+        }
 
         if (player.currentHp.value == 0) {
             return ActionResult(
@@ -85,7 +107,7 @@ object EnemyTurnExecutor {
 
         val afterResolution =
             state.copy(
-                player = player,
+                player = player.copy(movedThisPhase = false),
                 enemies = resolvedEnemies,
                 phase = CombatPhase.PLAYER,
             )

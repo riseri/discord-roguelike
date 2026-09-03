@@ -7,8 +7,10 @@ import dev.riseri.core.combat.EnemyDefinition
 import dev.riseri.core.combat.EnemyIntention
 import dev.riseri.core.combat.EntityId
 import dev.riseri.core.combat.GameAction
+import dev.riseri.core.combat.GridPosition
 import dev.riseri.core.combat.HitPoints
 import dev.riseri.core.combat.IntentionId
+import dev.riseri.core.combat.TacticalMovement
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -63,12 +65,8 @@ class RunCombatEngineTest {
 
     @Test
     fun `combat victory persists hp and completes the current room`() {
-        var state = RunCombatEngine.start(RunState.initial(RunSeed(42)), enemyDefinitions)
-        repeat(2) {
-            state = RunCombatEngine.execute(state, slash(), enemyDefinitions).state
-        }
-        val result = RunCombatEngine.execute(state, slash(), enemyDefinitions)
-        state = result.state
+        val result = playToTerminal(RunState.initial(RunSeed(42)))
+        val state = result.state
 
         val combat = state.activeCombat!!
         assertEquals(CombatStatus.WON, combat.status)
@@ -82,14 +80,28 @@ class RunCombatEngineTest {
     fun `combat defeat marks the owning run lost without divergent terminal state`() {
         val lowHealthRun = RunState.initial(RunSeed(42)).copy(playerHp = HitPoints(5))
         val started = RunCombatEngine.start(lowHealthRun, enemyDefinitions)
+        val combat = started.activeCombat!!
+        val positioned =
+            started.copy(
+                activeCombat =
+                    combat.copy(
+                        enemies =
+                            combat.enemies.mapIndexed { index, enemy ->
+                                enemy.copy(
+                                    position =
+                                        GridPosition(2 + index, 3),
+                                )
+                            },
+                    ),
+            )
 
-        val result = RunCombatEngine.execute(started, slash(), enemyDefinitions)
-        val combat = result.state.activeCombat!!
+        val result = RunCombatEngine.execute(positioned, slash(), enemyDefinitions)
+        val endedCombat = result.state.activeCombat!!
 
-        assertEquals(CombatStatus.LOST, combat.status)
+        assertEquals(CombatStatus.LOST, endedCombat.status)
         assertEquals(RunStatus.LOST, result.state.status)
         assertEquals(HitPoints(0), result.state.playerHp)
-        assertEquals(combat.player.currentHp, result.state.playerHp)
+        assertEquals(endedCombat.player.currentHp, result.state.playerHp)
         assertEquals(listOf(RunEvent.RunLost), result.runEvents)
 
         val exception =
@@ -120,12 +132,47 @@ class RunCombatEngineTest {
         assertEquals(InvalidRunCombatReason.ROOM_ALREADY_COMPLETED, completedException.reason)
     }
 
-    private fun playOneAction(state: RunState): RunCombatActionResult =
-        RunCombatEngine.execute(
-            RunCombatEngine.start(state, enemyDefinitions),
-            slash(),
-            enemyDefinitions,
-        )
+    private fun playOneAction(state: RunState): RunCombatActionResult {
+        val started = RunCombatEngine.start(state, enemyDefinitions)
+        val destination =
+            started.activeCombat!!
+                .reachablePlayerPositions()
+                .sortedWith(compareBy({ it.y }, { it.x }))
+                .first()
+        return RunCombatEngine.execute(started, GameAction.MoveUnit(destination), enemyDefinitions)
+    }
 
-    private fun slash() = GameAction.UseAbility(AbilityId.SLASH, EntityId("goblin-1"))
+    private fun playToTerminal(initial: RunState): RunCombatActionResult {
+        var state = RunCombatEngine.start(initial, enemyDefinitions)
+        var result: RunCombatActionResult? = null
+        repeat(40) {
+            val combat = state.activeCombat!!
+            if (combat.status != CombatStatus.ACTIVE) return result!!
+            val target = combat.enemies.first { it.currentHp.value > 0 }
+            if (TacticalMovement.distance(combat.player.position, target.position) > 1 && !combat.player.movedThisPhase) {
+                val destination =
+                    combat.reachablePlayerPositions().minWith(
+                        compareBy({
+                            TacticalMovement.distance(it, target.position)
+                        }, { it.y }, { it.x }),
+                    )
+                state = RunCombatEngine.execute(state, GameAction.MoveUnit(destination), enemyDefinitions).state
+            }
+            val nextCombat = state.activeCombat!!
+            val nextTarget = nextCombat.enemies.first { it.currentHp.value > 0 }
+            val action =
+                if (TacticalMovement.distance(nextCombat.player.position, nextTarget.position) ==
+                    1
+                ) {
+                    slash(nextTarget.entityId)
+                } else {
+                    GameAction.UseAbility(AbilityId.GUARD, EntityId("knight"))
+                }
+            result = RunCombatEngine.execute(state, action, enemyDefinitions)
+            state = result!!.state
+        }
+        error("Encounter did not terminate")
+    }
+
+    private fun slash(targetId: EntityId = EntityId("goblin-1")) = GameAction.UseAbility(AbilityId.SLASH, targetId)
 }

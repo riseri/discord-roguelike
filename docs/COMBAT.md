@@ -12,6 +12,8 @@ The MVP uses:
 
 - One player character
 - One or more enemies
+- A small flat tactical grid
+- Authoritative unit positions and tile occupancy
 - Player turns
 - Enemy turns
 - Telegraphable enemy intentions
@@ -100,9 +102,9 @@ Exact balance values may change during testing.
 The initial combat loop is:
 
 1. Enemy intentions are visible.
-2. Player selects an ability.
-3. Validate the player action.
-4. Resolve the player action.
+2. Player may move once to an authoritatively reachable, unoccupied tile.
+3. Player selects an ability and a valid target.
+4. Validate and resolve the player action.
 5. Resolve resulting effects required by the current implementation.
 6. Check enemy deaths.
 7. Check combat victory.
@@ -117,6 +119,21 @@ The initial combat loop is:
 Do not continue normal combat resolution after combat has reached a terminal state.
 
 This order may be refined later when additional mechanics require it.
+
+## Tactical Grid
+
+The first tactical encounter uses an 8-by-6 flat grid. The Knight can move up to 3
+orthogonal tiles during the player phase, and enemies can move up to 2 orthogonal tiles
+during the enemy phase. Units cannot move through or finish on occupied tiles.
+
+Movement range and shortest paths are calculated in `game-core` with stable traversal
+ordering. The server exposes authoritative reachable destinations; the client only renders
+and submits those choices.
+
+Slash and Shield Bash require an orthogonally adjacent enemy. Guard targets the Knight and
+commits the player phase without requiring movement. Enemies follow a deterministic shortest
+path toward an open tile adjacent to the Knight, then use their committed intention if they
+are in melee range. Elevation, facing, terrain effects, and initiative are deferred.
 
 ## Action Resolution
 

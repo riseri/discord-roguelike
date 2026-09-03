@@ -49,26 +49,52 @@ class PlayableEncounterIntegrationTest {
         assertEquals(0, combat.path("player").path("block").asInt())
         assertEquals("PLAYER", combat.path("phase").stringValue())
         assertEquals("ACTIVE", combat.path("status").stringValue())
-        assertEquals(1, combat.path("enemies").size())
-        assertEquals(
-            "goblin",
-            combat
-                .path("enemies")
-                .single()
-                .path("contentId")
-                .stringValue(),
-        )
+        assertEquals(2, combat.path("enemies").size())
+        assertTrue(combat.path("enemies").all { it.path("contentId").stringValue() == "goblin" })
 
-        // Use the same public action path as the playable client without coupling this regression
-        // to exact round counts or remaining HP, which are expected to change during tuning.
+        // Follow authoritative reachable tiles, then use an adjacent attack through the same API
+        // sequence as the playable client.
         var actionsTaken = 0
         while (combat.path("status").stringValue() == "ACTIVE" && actionsTaken < 100) {
             val target = combat.path("enemies").firstOrNull { it.path("currentHp").asInt() > 0 }
             assertNotNull(target)
+
+            fun distance(): Int =
+                kotlin.math.abs(
+                    combat
+                        .path("player")
+                        .path("position")
+                        .path("x")
+                        .asInt() - target.path("position").path("x").asInt(),
+                ) +
+                    kotlin.math.abs(
+                        combat
+                            .path("player")
+                            .path("position")
+                            .path("y")
+                            .asInt() - target.path("position").path("y").asInt(),
+                    )
+            if (distance() > 1 && combat.path("reachablePositions").size() > 0) {
+                val destination =
+                    combat.path("reachablePositions").minBy { position ->
+                        kotlin.math.abs(position.path("x").asInt() - target.path("position").path("x").asInt()) +
+                            kotlin.math.abs(position.path("y").asInt() - target.path("position").path("y").asInt())
+                    }
+                combat =
+                    postJson(
+                        "/api/combat/actions",
+                        """{"destination":{"x":${destination.path("x").asInt()},"y":${destination.path("y").asInt()}}}""",
+                    ).path("state")
+            }
+            val adjacent = distance() == 1
             combat =
                 postJson(
                     "/api/combat/actions",
-                    """{"abilityId":"SLASH","targetId":"${target.path("entityId").stringValue()}"}""",
+                    if (adjacent) {
+                        """{"abilityId":"SLASH","targetId":"${target.path("entityId").stringValue()}"}"""
+                    } else {
+                        """{"abilityId":"GUARD","targetId":"knight"}"""
+                    },
                 ).path("state")
             actionsTaken++
         }

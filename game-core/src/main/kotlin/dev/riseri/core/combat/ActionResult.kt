@@ -8,6 +8,17 @@ data class ActionResult(
 )
 
 sealed interface GameEvent {
+    data class EntityMoved(
+        val entityId: EntityId,
+        val from: GridPosition,
+        val to: GridPosition,
+    ) : GameEvent
+
+    data class EntityStunned(
+        val entityId: EntityId,
+        val turns: Int,
+    ) : GameEvent
+
     data class AbilityUsed(
         val actorId: EntityId,
         val abilityId: AbilityId,

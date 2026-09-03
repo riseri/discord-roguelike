@@ -58,11 +58,14 @@ data class EnemyCombatState(
     val currentHp: HitPoints,
     val maxHp: HitPoints,
     val currentIntention: EnemyIntention?,
+    val position: GridPosition = GridPosition(2, 3),
+    val stunnedTurns: Int = 0,
 ) {
     init {
         require(maxHp.value > 0) { "Maximum hit points must be positive" }
         require(currentHp.value <= maxHp.value) {
             "Current hit points must not exceed maximum hit points"
         }
+        require(stunnedTurns >= 0) { "Stun duration must not be negative" }
     }
 }

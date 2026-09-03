@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { DoorOpenIcon, MapPinIcon, ShieldIcon, SparklesIcon, SwordIcon } from 'lucide-react'
+import type { CSSProperties } from 'react'
+import { DoorOpenIcon, FootprintsIcon, MapPinIcon, ShieldIcon, SparklesIcon, SwordIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import './App.css'
@@ -8,14 +9,11 @@ import {
   CombatantStatus,
   CommandButton,
   CommandMenu,
-  EnemyIntent,
   JrpgWindow,
   ResultWindow,
-  TargetButton,
-  TargetCursor,
 } from './components/game-ui/GameUi'
 
-type AbilityId = 'SLASH' | 'GUARD'
+type AbilityId = 'SLASH' | 'GUARD' | 'SHIELD_BASH'
 type CombatStatus = 'ACTIVE' | 'WON' | 'LOST'
 type RunScreen = 'LOADING' | 'NO_RUN' | 'CURRENT_ROOM' | 'COMBAT' | 'ROOM_COMPLETE' | 'RUN_COMPLETE'
 
@@ -35,7 +33,10 @@ interface PlayerState {
   currentHp: number
   maxHp: number
   block: number
+  position: Position
 }
+
+interface Position { x: number; y: number }
 
 interface EnemyIntention {
   id: string
@@ -48,6 +49,8 @@ interface EnemyState {
   currentHp: number
   maxHp: number
   intention: EnemyIntention | null
+  position: Position
+  stunnedTurns: number
 }
 
 interface CombatState {
@@ -56,6 +59,8 @@ interface CombatState {
   abilities: Ability[]
   phase: 'PLAYER' | 'ENEMY'
   status: CombatStatus
+  grid: { width: number; height: number }
+  reachablePositions: Position[]
 }
 
 interface Ability {
@@ -71,7 +76,7 @@ interface ApiError {
 }
 
 type CombatEvent = {
-  type: 'ABILITY_USED' | 'DAMAGE_DEALT' | 'BLOCK_GAINED' | 'ENEMY_INTENTION_GENERATED' |
+  type: 'ENTITY_MOVED' | 'ENTITY_STUNNED' | 'ABILITY_USED' | 'DAMAGE_DEALT' | 'BLOCK_GAINED' | 'ENEMY_INTENTION_GENERATED' |
     'ENEMY_ACTION_USED' | 'BLOCK_ABSORBED' | 'ENTITY_DEFEATED' | 'COMBAT_WON' | 'COMBAT_LOST'
   actorId?: string
   abilityId?: AbilityId
@@ -82,6 +87,9 @@ type CombatEvent = {
   intention?: EnemyIntention
   intentionId?: string
   amount?: number
+  from?: Position
+  to?: Position
+  turns?: number
 }
 
 interface CombatActionResponse {
@@ -111,14 +119,14 @@ class ApiRequestError extends Error {
 async function requestApi<T>(
   path: string,
   method: 'GET' | 'POST',
-  body?: Record<string, string | number>,
+  body?: unknown,
 ): Promise<T> {
   const response = await fetch(path, {
     method,
-    ...(body && {
+    ...(body !== undefined ? {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-    }),
+    } : {}),
   })
 
   if (!response.ok) {
@@ -142,6 +150,10 @@ function waitForPresentation(delay: number) {
 // Event amounts are authoritative deltas, allowing the UI to reveal state without replaying rules.
 function applyEvent(state: CombatState, event: CombatEvent): CombatState {
   const amount = event.amount ?? 0
+  if (event.type === 'ENTITY_MOVED' && event.entityId && event.to) {
+    if (event.entityId === state.player.entityId) return { ...state, player: { ...state.player, position: event.to } }
+    return { ...state, enemies: state.enemies.map((enemy) => enemy.entityId === event.entityId ? { ...enemy, position: event.to! } : enemy) }
+  }
   if (event.type === 'DAMAGE_DEALT' && event.targetId) {
     if (event.targetId === state.player.entityId) {
       return { ...state, player: { ...state.player, currentHp: Math.max(0, state.player.currentHp - amount) } }
@@ -182,6 +194,8 @@ function applyEvent(state: CombatState, event: CombatEvent): CombatState {
 }
 
 function eventMessage(event: CombatEvent, state: CombatState) {
+  if (event.type === 'ENTITY_MOVED') return event.entityId === state.player.entityId ? 'Knight advances' : 'Enemy advances'
+  if (event.type === 'ENTITY_STUNNED') return 'Enemy stunned'
   if (event.type === 'ABILITY_USED') return `Knight uses ${displayName(event.abilityId ?? 'ability')}`
   if (event.type === 'DAMAGE_DEALT') return `${event.amount ?? 0} damage`
   if (event.type === 'BLOCK_GAINED') return `Guard raised · +${event.amount ?? 0} Block`
@@ -340,6 +354,22 @@ function App() {
     }
   }
 
+  const moveKnight = async (destination: Position) => {
+    if (!combat || actionInFlight.current) return
+    actionInFlight.current = true
+    setPending(true)
+    setError(null)
+    try {
+      const result = await requestApi<CombatActionResponse>('/api/combat/actions', 'POST', { destination })
+      setCombat(result.state)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to move there.')
+    } finally {
+      actionInFlight.current = false
+      setPending(false)
+    }
+  }
+
   const leaveCombat = async () => {
     setPending(true)
     setError(null)
@@ -438,7 +468,11 @@ function App() {
 
   const selectedAbilityDetails = combat.abilities.find(({ id }) => id === selectedAbility)
   const canAct = combat.status === 'ACTIVE' && combat.phase === 'PLAYER' && !pending
-  const hasTarget = selectedAbilityDetails?.target === 'SELF' || selectedTarget !== null
+  const selectedEnemy = combat.enemies.find(({ entityId }) => entityId === selectedTarget)
+  const targetInRange = selectedEnemy ? Math.abs(selectedEnemy.position.x - combat.player.position.x) + Math.abs(selectedEnemy.position.y - combat.player.position.y) === 1 : false
+  const hasTarget = selectedAbilityDetails?.target === 'SELF' || (selectedTarget !== null && targetInRange)
+  const reachable = new Set(combat.reachablePositions.map(({ x, y }) => `${x},${y}`))
+  const enemiesByTile = new Map(combat.enemies.filter(({ currentHp }) => currentHp > 0).map((enemy) => [`${enemy.position.x},${enemy.position.y}`, enemy]))
 
   return (
     <main className="combat-shell">
@@ -464,91 +498,32 @@ function App() {
         />
       )}
 
-      <section className="battlefield" aria-label="Combatants">
-        <div className="battlefield__glow" aria-hidden="true" />
-        <div className="battlefield-stage">
-          <article className="player-combatant" aria-label="Knight">
-            <div className="fighter fighter--knight" aria-hidden="true">
-              <span className="fighter__shield" />
-              <span className="fighter__body" />
-            </div>
-          </article>
-
-          <div className="enemy-list">
-            {combat.enemies.map((enemy) => {
-              const defeated = enemy.currentHp === 0
-              return (
-                <label
-                  className={`enemy-combatant${selectedTarget === enemy.entityId ? ' enemy-combatant--selected' : ''}${defeated ? ' enemy-combatant--defeated' : ''}`}
-                  key={enemy.entityId}
-                >
-                  <input
-                    type="radio"
-                    name="target"
-                    value={enemy.entityId}
-                    checked={selectedTarget === enemy.entityId}
-                    onChange={() => setSelectedTarget(enemy.entityId)}
-                    disabled={defeated || !canAct}
-                  />
-                  <div className="enemy-presentation">
-                    <TargetCursor selected={selectedTarget === enemy.entityId} />
-                    <EnemyIntent
-                      name={enemy.intention ? displayName(enemy.intention.id) : 'No action'}
-                      damage={enemy.intention?.damage}
-                    />
-                    <span className="fighter fighter--goblin" aria-hidden="true">
-                      <span className="fighter__ear fighter__ear--left" />
-                      <span className="fighter__ear fighter__ear--right" />
-                      <span className="fighter__body" />
-                    </span>
-                  </div>
-                </label>
-              )
-            })}
-          </div>
+      <section className="tactical-layout" aria-label="Tactical battlefield">
+        <JrpgWindow as="aside" className="tactical-roster">
+          <CombatantStatus name="Knight" label="You" currentHp={combat.player.currentHp} maxHp={combat.player.maxHp} hpLabel="Knight health" tone="player" block={combat.player.block} />
+          {combat.enemies.map((enemy) => <CombatantStatus key={enemy.entityId} className={selectedTarget === enemy.entityId ? 'enemy-status enemy-status--selected' : 'enemy-status'} name={displayName(enemy.entityId)} label={enemy.stunnedTurns ? 'Stunned' : `${displayName(enemy.intention?.id ?? 'waiting')} · ${enemy.intention?.damage ?? 0} dmg`} currentHp={enemy.currentHp} maxHp={enemy.maxHp} hpLabel={`${displayName(enemy.entityId)} health`} tone="enemy" />)}
+        </JrpgWindow>
+        <div className="tactical-board" style={{ '--grid-columns': combat.grid.width } as CSSProperties}>
+          {Array.from({ length: combat.grid.width * combat.grid.height }, (_, index) => {
+            const position = { x: index % combat.grid.width, y: Math.floor(index / combat.grid.width) }
+            const key = `${position.x},${position.y}`
+            const enemy = enemiesByTile.get(key)
+            const isKnight = combat.player.position.x === position.x && combat.player.position.y === position.y
+            const canMove = canAct && reachable.has(key) && !enemy
+            return <button key={key} type="button" className={`tactical-tile${canMove ? ' tactical-tile--reachable' : ''}${enemy && selectedTarget === enemy.entityId ? ' tactical-tile--selected' : ''}`} onClick={() => enemy ? setSelectedTarget(enemy.entityId) : canMove ? void moveKnight(position) : undefined} disabled={pending} aria-label={enemy ? `${displayName(enemy.entityId)}, ${enemy.currentHp} health` : isKnight ? 'Knight' : canMove ? `Move to column ${position.x + 1}, row ${position.y + 1}` : `Column ${position.x + 1}, row ${position.y + 1}`}>
+              {isKnight && <span className="tactical-unit tactical-unit--knight"><ShieldIcon size={22} /><b>Knight</b></span>}
+              {enemy && <span className="tactical-unit tactical-unit--enemy"><span className="intent-pip">{enemy.stunnedTurns ? '✦' : enemy.intention?.damage}</span><b>{displayName(enemy.contentId)}</b><small>{enemy.currentHp}/{enemy.maxHp}</small></span>}
+            </button>
+          })}
         </div>
-
-        <div className="battlefield-status-row">
-          <CombatantStatus
-            className="player-status"
-            name="Knight"
-            label="You"
-            currentHp={combat.player.currentHp}
-            maxHp={combat.player.maxHp}
-            hpLabel="Knight health"
-            tone="player"
-            block={combat.player.block}
-            marker={<span className="level-mark"><ShieldIcon size={16} /></span>}
-          />
-          <div className="enemy-status-list">
-            {combat.enemies.map((enemy) => {
-              const defeated = enemy.currentHp === 0
-              return (
-                <CombatantStatus
-                  key={enemy.entityId}
-                  className="enemy-status"
-                  name={displayName(enemy.contentId)}
-                  label="Enemy"
-                  currentHp={enemy.currentHp}
-                  maxHp={enemy.maxHp}
-                  hpLabel={`${displayName(enemy.contentId)} health`}
-                  tone="enemy"
-                  marker={
-                    <span className="target-marker">
-                      {defeated ? 'Down' : selectedTarget === enemy.entityId ? 'Selected' : 'Choose'}
-                    </span>
-                  }
-                />
-              )
-            })}
-          </div>
-        </div>
+        <div className="tactical-legend"><span><i className="legend-swatch legend-swatch--move" /> Move range</span><span><i className="legend-swatch legend-swatch--target" /> Selected target</span></div>
       </section>
 
       {combat.status === 'ACTIVE' && (
-        <JrpgWindow as="section" className="action-panel" aria-labelledby="ability-heading">
+        <JrpgWindow as="section" className="action-panel tactical-actions" aria-labelledby="ability-heading">
           <div className="command-menu">
             <p className="panel-prompt" id="ability-heading">Choose an action</p>
+            <div className="move-hint"><FootprintsIcon size={16} /> Select a blue tile to move</div>
             <CommandMenu
               value={selectedAbility}
               onValueChange={(value) => setSelectedAbility(value as AbilityId)}
@@ -577,19 +552,8 @@ function App() {
               <div><dt>Type</dt><dd>{selectedAbility === 'GUARD' ? 'Defense' : 'Attack'}</dd></div>
             </dl>
           </div>
-          <div className="target-menu">
-            <p className="panel-prompt">{selectedAbilityDetails?.target === 'SELF' ? 'Target' : 'Select target'}</p>
-            {selectedAbilityDetails?.target === 'SELF' ? (
-              <TargetButton name="Knight" selected disabled={!canAct} onSelect={() => undefined} />
-            ) : combat.enemies.map((enemy) => (
-              <TargetButton
-                key={enemy.entityId}
-                name={displayName(enemy.contentId)}
-                selected={selectedTarget === enemy.entityId}
-                disabled={!canAct || enemy.currentHp === 0}
-                onSelect={() => setSelectedTarget(enemy.entityId)}
-              />
-            ))}
+          <div className="target-menu tactical-confirm">
+            <p className="panel-prompt">{selectedAbilityDetails?.target === 'SELF' ? 'Ready to defend' : selectedEnemy ? `${displayName(selectedEnemy.entityId)} · ${targetInRange ? 'In range' : 'Out of range'}` : 'Select an adjacent enemy'}</p>
             <div className="target-menu__footer">
               <Button className="primary-button" type="button" onClick={useAbility} disabled={!canAct || !hasTarget}>
                 {pending ? 'Resolving…' : 'Confirm action'}

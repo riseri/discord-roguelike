@@ -7,6 +7,11 @@ enum class InvalidActionReason {
     TARGET_NOT_FOUND,
     INVALID_TARGET,
     TARGET_DEFEATED,
+    TARGET_OUT_OF_RANGE,
+    ALREADY_MOVED,
+    DESTINATION_OUT_OF_BOUNDS,
+    DESTINATION_OCCUPIED,
+    DESTINATION_UNREACHABLE,
 }
 
 class InvalidActionException(
@@ -33,12 +38,20 @@ object AbilityExecutor {
         return when (action.abilityId) {
             AbilityId.SLASH -> executeSlash(state, action)
             AbilityId.GUARD -> executeGuard(state, action)
+            AbilityId.SHIELD_BASH -> executeAttack(state, action, KnightAbilityValues.SHIELD_BASH_DAMAGE, stun = true)
         }
     }
 
     private fun executeSlash(
         state: CombatState,
         action: GameAction.UseAbility,
+    ): ActionResult = executeAttack(state, action, KnightAbilityValues.SLASH_DAMAGE, stun = false)
+
+    private fun executeAttack(
+        state: CombatState,
+        action: GameAction.UseAbility,
+        damage: Int,
+        stun: Boolean,
     ): ActionResult {
         if (action.targetId == state.player.entityId) {
             throw InvalidActionException(InvalidActionReason.INVALID_TARGET)
@@ -51,9 +64,16 @@ object AbilityExecutor {
         if (target.currentHp.value == 0) {
             throw InvalidActionException(InvalidActionReason.TARGET_DEFEATED)
         }
+        if (TacticalMovement.distance(state.player.position, target.position) != 1) {
+            throw InvalidActionException(InvalidActionReason.TARGET_OUT_OF_RANGE)
+        }
 
-        val damageDealt = minOf(KnightAbilityValues.SLASH_DAMAGE, target.currentHp.value)
-        val updatedTarget = target.copy(currentHp = HitPoints(target.currentHp.value - damageDealt))
+        val damageDealt = minOf(damage, target.currentHp.value)
+        val updatedTarget =
+            target.copy(
+                currentHp = HitPoints(target.currentHp.value - damageDealt),
+                stunnedTurns = if (stun && damageDealt > 0) 1 else target.stunnedTurns,
+            )
         val updatedEnemies = state.enemies.map { if (it.entityId == target.entityId) updatedTarget else it }
         val enemyDefeated = updatedTarget.currentHp.value == 0
         val combatWon = enemyDefeated && updatedEnemies.all { it.currentHp.value == 0 }
@@ -68,6 +88,7 @@ object AbilityExecutor {
                         targetId = target.entityId,
                     ),
                 )
+                if (stun && !enemyDefeated) add(GameEvent.EntityStunned(target.entityId, 1))
                 add(
                     GameEvent.DamageDealt(
                         sourceId = state.player.entityId,

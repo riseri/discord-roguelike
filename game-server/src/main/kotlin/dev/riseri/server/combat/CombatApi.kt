@@ -7,6 +7,7 @@ import dev.riseri.core.combat.CombatStatus
 import dev.riseri.core.combat.EnemyCombatState
 import dev.riseri.core.combat.EnemyIntention
 import dev.riseri.core.combat.GameEvent
+import dev.riseri.core.combat.GridPosition
 import dev.riseri.core.combat.KnightAbilityValues
 import dev.riseri.core.combat.PlayerCombatState
 import dev.riseri.server.run.NoActiveRunException
@@ -21,9 +22,19 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.RestControllerAdvice
 
 data class UseAbilityRequest(
-    val abilityId: AbilityId,
-    val targetId: String,
+    val abilityId: AbilityId? = null,
+    val targetId: String? = null,
+    val destination: PositionResponse? = null,
 )
+
+data class PositionResponse(
+    val x: Int,
+    val y: Int,
+) {
+    companion object {
+        fun from(position: GridPosition) = PositionResponse(position.x, position.y)
+    }
+}
 
 data class CombatActionResponse(
     val state: CombatResponse,
@@ -52,10 +63,30 @@ data class CombatEventResponse(
     val intention: IntentionResponse? = null,
     val intentionId: String? = null,
     val amount: Int? = null,
+    val from: PositionResponse? = null,
+    val to: PositionResponse? = null,
+    val turns: Int? = null,
 ) {
     companion object {
         fun from(event: GameEvent): CombatEventResponse =
             when (event) {
+                is GameEvent.EntityMoved -> {
+                    CombatEventResponse(
+                        type = "ENTITY_MOVED",
+                        entityId = event.entityId.value,
+                        from = PositionResponse.from(event.from),
+                        to = PositionResponse.from(event.to),
+                    )
+                }
+
+                is GameEvent.EntityStunned -> {
+                    CombatEventResponse(
+                        type = "ENTITY_STUNNED",
+                        entityId = event.entityId.value,
+                        turns = event.turns,
+                    )
+                }
+
                 is GameEvent.AbilityUsed -> {
                     CombatEventResponse(
                         type = "ABILITY_USED",
@@ -128,6 +159,8 @@ data class CombatResponse(
     val abilities: List<AbilityResponse>,
     val phase: CombatPhase,
     val status: CombatStatus,
+    val grid: GridResponse,
+    val reachablePositions: List<PositionResponse>,
 ) {
     companion object {
         fun from(state: CombatState) =
@@ -137,9 +170,16 @@ data class CombatResponse(
                 abilities = AbilityResponse.KNIGHT_ABILITIES,
                 phase = state.phase,
                 status = state.status,
+                grid = GridResponse(state.grid.width, state.grid.height),
+                reachablePositions = state.reachablePlayerPositions().sortedWith(compareBy({ it.y }, { it.x })).map(PositionResponse::from),
             )
     }
 }
+
+data class GridResponse(
+    val width: Int,
+    val height: Int,
+)
 
 enum class AbilityTargetResponse {
     ENEMY,
@@ -167,6 +207,12 @@ data class AbilityResponse(
                     description = "Gain ${KnightAbilityValues.GUARD_BLOCK} Block.",
                     target = AbilityTargetResponse.SELF,
                 ),
+                AbilityResponse(
+                    id = AbilityId.SHIELD_BASH,
+                    name = "Shield Bash",
+                    description = "Deal ${KnightAbilityValues.SHIELD_BASH_DAMAGE} damage and stun an adjacent enemy.",
+                    target = AbilityTargetResponse.ENEMY,
+                ),
             )
     }
 }
@@ -176,6 +222,7 @@ data class PlayerResponse(
     val currentHp: Int,
     val maxHp: Int,
     val block: Int,
+    val position: PositionResponse,
 ) {
     companion object {
         fun from(player: PlayerCombatState) =
@@ -184,6 +231,7 @@ data class PlayerResponse(
                 currentHp = player.currentHp.value,
                 maxHp = player.maxHp.value,
                 block = player.block.value,
+                position = PositionResponse.from(player.position),
             )
     }
 }
@@ -194,6 +242,8 @@ data class EnemyResponse(
     val currentHp: Int,
     val maxHp: Int,
     val intention: IntentionResponse?,
+    val position: PositionResponse,
+    val stunnedTurns: Int,
 ) {
     companion object {
         fun from(enemy: EnemyCombatState) =
@@ -203,6 +253,8 @@ data class EnemyResponse(
                 currentHp = enemy.currentHp.value,
                 maxHp = enemy.maxHp.value,
                 intention = enemy.currentIntention?.let(IntentionResponse::from),
+                position = PositionResponse.from(enemy.position),
+                stunnedTurns = enemy.stunnedTurns,
             )
     }
 }

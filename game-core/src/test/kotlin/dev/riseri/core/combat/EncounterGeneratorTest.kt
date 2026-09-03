@@ -5,28 +5,25 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class EncounterGeneratorTest {
     @Test
-    fun `starter encounter contains exactly one existing goblin deterministically`() {
+    fun `starter encounter contains two positioned goblins deterministically`() {
         val first = EncounterGenerator.generateStarter(definitions, CombatRngState(7_321))
         val second = EncounterGenerator.generateStarter(definitions.reversed(), CombatRngState(7_321))
 
         assertEquals(first, second)
         assertEquals(CombatRngState(7_321), first.nextRngState)
-        assertEquals(1, first.encounter.enemies.size)
+        assertEquals(2, first.encounter.enemies.size)
+        assertEquals(listOf(EntityId("goblin-1"), EntityId("goblin-2")), first.encounter.enemies.map { it.entityId })
         assertEquals(
-            EnemyContentId("goblin"),
+            setOf(GridPosition(6, 1), GridPosition(6, 4)),
             first.encounter.enemies
-                .single()
-                .enemyContentId,
+                .map { it.position }
+                .toSet(),
         )
-        assertEquals(
-            HitPoints(40),
-            first.encounter.enemies
-                .single()
-                .maxHp,
-        )
+        assertTrue(first.encounter.enemies.all { it.enemyContentId == EnemyContentId("goblin") && it.maxHp == HitPoints(40) })
     }
 
     @Test

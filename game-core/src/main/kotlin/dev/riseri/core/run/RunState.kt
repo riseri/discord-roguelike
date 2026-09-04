@@ -3,6 +3,7 @@ package dev.riseri.core.run
 import dev.riseri.core.combat.CombatState
 import dev.riseri.core.combat.CombatStatus
 import dev.riseri.core.combat.HitPoints
+import dev.riseri.core.random.nextDeterministicInt
 
 @JvmInline
 value class RunSeed(
@@ -30,6 +31,17 @@ value class RelicId(
 @JvmInline
 value class RunRngState(
     val value: Long,
+) {
+    /** Advances run-owned randomness without consulting global or platform RNG state. */
+    fun nextInt(bound: Int): RunRandomIntResult {
+        val random = nextDeterministicInt(value, bound)
+        return RunRandomIntResult(random.value, RunRngState(random.nextState))
+    }
+}
+
+data class RunRandomIntResult(
+    val value: Int,
+    val nextState: RunRngState,
 )
 
 enum class RunStatus {

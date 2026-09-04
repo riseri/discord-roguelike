@@ -14,6 +14,18 @@ class InvalidRunActionException(
 ) : IllegalArgumentException(reason.name)
 
 object RunEngine {
+    /** Returns only destinations that can currently be submitted as [RunAction.ChooseRoom]. */
+    fun availableNextRoomIds(state: RunState): List<RoomId> {
+        if (state.status != RunStatus.ACTIVE || state.currentRoomId !in state.completedRoomIds) {
+            return emptyList()
+        }
+
+        return state.dungeonGraph.rooms
+            .getValue(state.currentRoomId)
+            .nextRoomIds
+            .filterNot(state.completedRoomIds::contains)
+    }
+
     /**
      * Applies every run lifecycle action through one authoritative transition path. A null state
      * represents the pre-run state and is valid only for [RunAction.StartRun].
@@ -72,8 +84,7 @@ object RunEngine {
             throw InvalidRunActionException(InvalidRunActionReason.ROOM_ALREADY_COMPLETED)
         }
 
-        val currentRoom = state.dungeonGraph.rooms.getValue(state.currentRoomId)
-        if (action.roomId !in currentRoom.nextRoomIds) {
+        if (action.roomId !in availableNextRoomIds(state)) {
             throw InvalidRunActionException(InvalidRunActionReason.ROOM_NOT_REACHABLE)
         }
 

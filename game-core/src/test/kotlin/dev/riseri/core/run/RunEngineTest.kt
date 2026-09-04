@@ -7,6 +7,26 @@ import kotlin.test.assertNotSame
 
 class RunEngineTest {
     @Test
+    fun `available room choices follow authoritative navigation gates`() {
+        val initial = RunState.initial(RunSeed(42))
+
+        assertEquals(emptyList(), RunEngine.availableNextRoomIds(initial))
+
+        val completed = RunEngine.execute(initial, RunAction.CompleteCurrentRoom).state
+
+        assertEquals(
+            completed.dungeonGraph.rooms
+                .getValue(completed.currentRoomId)
+                .nextRoomIds,
+            RunEngine.availableNextRoomIds(completed),
+        )
+        assertEquals(
+            emptyList(),
+            RunEngine.availableNextRoomIds(completed.copy(status = RunStatus.WON)),
+        )
+    }
+
+    @Test
     fun `starts a run through the authoritative transition path`() {
         val result = RunEngine.execute(null, RunAction.StartRun(RunSeed(42)))
 

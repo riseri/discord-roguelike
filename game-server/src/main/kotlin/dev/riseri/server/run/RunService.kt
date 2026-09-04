@@ -3,6 +3,7 @@ package dev.riseri.server.run
 import dev.riseri.core.combat.EnemyContentId
 import dev.riseri.core.combat.EnemyDefinition
 import dev.riseri.core.combat.GameAction
+import dev.riseri.core.run.RoomId
 import dev.riseri.core.run.RunAction
 import dev.riseri.core.run.RunCombatActionResult
 import dev.riseri.core.run.RunCombatEngine
@@ -13,6 +14,8 @@ import org.springframework.stereotype.Service
 import kotlin.random.Random
 
 class NoActiveRunException : IllegalStateException("No active run")
+
+class InvalidRoomIdException : IllegalArgumentException("Room id is required")
 
 /** Keeps the single M2.0 run in memory while delegating lifecycle rules to game-core. */
 @Service
@@ -31,6 +34,17 @@ class RunService {
 
     @Synchronized
     fun current(): RunResponse = RunResponse.from(state ?: throw NoActiveRunException())
+
+    @Synchronized
+    fun chooseRoom(roomId: String?): RunResponse {
+        val currentState = state ?: throw NoActiveRunException()
+        val destination = roomId?.takeIf(String::isNotBlank)?.let(::RoomId) ?: throw InvalidRoomIdException()
+        val result = RunEngine.execute(currentState, RunAction.ChooseRoom(destination))
+
+        // Commit only after core accepts the destination so invalid requests cannot alter the run.
+        state = result.state
+        return RunResponse.from(result.state)
+    }
 
     @Synchronized
     internal fun startCombat(enemyDefinitions: Map<EnemyContentId, EnemyDefinition>): RunState {

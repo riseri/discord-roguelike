@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { DoorOpenIcon, FootprintsIcon, MapPinIcon, ShieldIcon, SparklesIcon, SwordIcon } from 'lucide-react'
+import {
+  CheckIcon,
+  CrownIcon,
+  DoorOpenIcon,
+  FootprintsIcon,
+  GemIcon,
+  ScrollTextIcon,
+  ShieldIcon,
+  SparklesIcon,
+  SwordIcon,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import './App.css'
@@ -15,7 +25,13 @@ import {
 
 type AbilityId = 'SLASH' | 'GUARD' | 'SHIELD_BASH'
 type CombatStatus = 'ACTIVE' | 'WON' | 'LOST'
+type RoomType = 'COMBAT' | 'EVENT' | 'TREASURE' | 'BOSS'
 type RunScreen = 'LOADING' | 'NO_RUN' | 'CURRENT_ROOM' | 'COMBAT' | 'ROOM_COMPLETE' | 'RUN_COMPLETE'
+
+interface RoomSummary {
+  id: string
+  type: RoomType
+}
 
 interface RunState {
   seed: number
@@ -23,6 +39,8 @@ interface RunState {
   playerHp: number
   playerMaxHp: number
   currentRoomId: string
+  currentRoom: RoomSummary
+  availableNextRooms: RoomSummary[]
   completedRoomIds: string[]
   ownedRelicIds: string[]
   rngState: number
@@ -102,6 +120,33 @@ function displayName(identifier: string) {
     .replaceAll('-', ' ')
     .replaceAll('_', ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+const roomTypeDetails: Record<RoomType, { description: string; arrival: string; title: string; icon: typeof SwordIcon }> = {
+  COMBAT: {
+    description: 'Face an enemy encounter',
+    arrival: 'Enemies block the path ahead. Steel your resolve before stepping into the encounter.',
+    title: 'Goblin Ambush',
+    icon: SwordIcon,
+  },
+  EVENT: {
+    description: 'Meet an uncertain fate',
+    arrival: 'A strange encounter waits beyond the bend. Choose your next step carefully.',
+    title: 'An Uncertain Meeting',
+    icon: ScrollTextIcon,
+  },
+  TREASURE: {
+    description: 'Claim a hidden reward',
+    arrival: 'A forgotten cache lies ahead, untouched beneath the old stones.',
+    title: 'A Hidden Cache',
+    icon: GemIcon,
+  },
+  BOSS: {
+    description: 'Challenge the dungeon boss',
+    arrival: 'The dungeon lord waits beyond the final gate. There will be no turning back.',
+    title: 'The Final Gate',
+    icon: CrownIcon,
+  },
 }
 
 class ApiRequestError extends Error {
@@ -306,6 +351,19 @@ function App() {
     }
   }
 
+  const chooseRoom = async (roomId: string) => {
+    setPending(true)
+    setError(null)
+    try {
+      const nextRun = await requestApi<RunState>('/api/runs/current/rooms', 'POST', { roomId })
+      showAuthoritativeRun(nextRun)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to choose that path.')
+    } finally {
+      setPending(false)
+    }
+  }
+
   const useAbility = async () => {
     if (!combat || actionInFlight.current) return
 
@@ -415,6 +473,8 @@ function App() {
   if (run && (screen === 'CURRENT_ROOM' || screen === 'ROOM_COMPLETE' || screen === 'RUN_COMPLETE')) {
     const roomComplete = screen === 'ROOM_COMPLETE'
     const runComplete = screen === 'RUN_COMPLETE'
+    const currentRoomDetails = roomTypeDetails[run.currentRoom.type]
+    const CurrentRoomIcon = currentRoomDetails.icon
     return (
       <main className="run-shell">
         <JrpgWindow as="header" className="run-header">
@@ -433,19 +493,61 @@ function App() {
           <div className="room-stage__sun" aria-hidden="true" />
           <JrpgWindow as="section" className={`room-window${roomComplete ? ' room-window--complete' : ''}${runComplete ? ' room-window--failed' : ''}`}>
             <div className="room-icon" aria-hidden="true">
-              {roomComplete ? <SparklesIcon size={28} /> : runComplete ? <ShieldIcon size={28} /> : <MapPinIcon size={28} />}
+              {roomComplete ? <SparklesIcon size={28} /> : runComplete ? <ShieldIcon size={28} /> : <CurrentRoomIcon size={28} />}
             </div>
             <p className="eyebrow">{roomComplete ? 'Room complete' : runComplete ? 'Run ended' : 'Current room'}</p>
-            <h1 id="room-title">{roomComplete ? 'The Road Is Clear' : runComplete ? 'The Knight Has Fallen' : 'Goblin Ambush'}</h1>
+            <h1 id="room-title">{roomComplete ? 'The Road Is Clear' : runComplete ? 'The Knight Has Fallen' : currentRoomDetails.title}</h1>
             <p className="room-location">The Old Dungeon Road</p>
             <Separator className="room-separator" />
-            <p className="intro">
+            <p className={`intro${roomComplete ? ' route-intro' : ''}`}>
               {roomComplete
-                ? 'The goblins are defeated. Your expedition is safe here while the next path is prepared.'
+                ? 'The encounter is over. Choose where the Knight ventures next.'
                 : runComplete
                   ? 'The old road has claimed this expedition. Your progress ends here.'
-                : 'Goblins block the path ahead. Steel your resolve before stepping into the encounter.'}
+                  : currentRoomDetails.arrival}
             </p>
+            {roomComplete && run.availableNextRooms.length > 0 && (
+              <div className="route-selection" aria-labelledby="route-selection-title">
+                <div className="route-current" aria-label={`Completed ${displayName(run.currentRoom.type)} room`}>
+                  <span className={`route-room__icon route-room__icon--${run.currentRoom.type.toLowerCase()}`} aria-hidden="true">
+                    <CurrentRoomIcon size={20} />
+                  </span>
+                  <span>
+                    <small>Current · Complete</small>
+                    <strong>{displayName(run.currentRoom.type)}</strong>
+                  </span>
+                  <CheckIcon className="route-current__check" size={18} aria-hidden="true" />
+                </div>
+                <span className="route-connector" aria-hidden="true" />
+                <h2 id="route-selection-title">Choose your path</h2>
+                <div className="route-choices">
+                  {run.availableNextRooms.map((room) => {
+                    const details = roomTypeDetails[room.type]
+                    const RoomIcon = details.icon
+                    return (
+                      <Button
+                        className={`route-room route-room--${room.type.toLowerCase()}`}
+                        variant="ghost"
+                        type="button"
+                        key={room.id}
+                        onClick={() => void chooseRoom(room.id)}
+                        disabled={pending}
+                      >
+                        <span className={`route-room__icon route-room__icon--${room.type.toLowerCase()}`} aria-hidden="true">
+                          <RoomIcon size={24} />
+                        </span>
+                        <span className="route-room__copy">
+                          <small>Available route</small>
+                          <strong>{displayName(room.type)}</strong>
+                          <span>{details.description}</span>
+                        </span>
+                        <span className="route-room__action">{pending ? 'Choosing…' : 'Choose'} <span aria-hidden="true">›</span></span>
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             {!roomComplete && !runComplete && (
               <Button className="primary-button room-action" type="button" onClick={enterCombat} disabled={pending}>
                 <DoorOpenIcon size={16} aria-hidden="true" />
@@ -458,7 +560,7 @@ function App() {
 
         <footer className="run-footer">
           <span>Room · {displayName(run.currentRoomId)}</span>
-          <span>{roomComplete ? 'Encounter cleared' : runComplete ? 'Expedition ended' : 'Combat ahead'}</span>
+          <span>{roomComplete ? 'Encounter cleared' : runComplete ? 'Expedition ended' : `${displayName(run.currentRoom.type)} ahead`}</span>
         </footer>
       </main>
     )

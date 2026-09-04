@@ -55,6 +55,7 @@ data class RunState(
     val status: RunStatus,
     val playerHp: HitPoints,
     val playerMaxHp: HitPoints,
+    val dungeonGraph: DungeonGraph,
     val currentRoomId: RoomId,
     val completedRoomIds: Set<RoomId>,
     val ownedRelicIds: Set<RelicId>,
@@ -65,6 +66,12 @@ data class RunState(
         require(playerMaxHp.value > 0) { "Player maximum hit points must be positive" }
         require(playerHp.value <= playerMaxHp.value) {
             "Player hit points must not exceed maximum hit points"
+        }
+        require(currentRoomId in dungeonGraph.rooms) {
+            "Current room must exist in the dungeon graph"
+        }
+        require(completedRoomIds.all { it in dungeonGraph.rooms }) {
+            "Completed rooms must exist in the dungeon graph"
         }
         activeCombat?.let { combat ->
             require(combat.player.currentHp == playerHp && combat.player.maxHp == playerMaxHp) {
@@ -87,21 +94,21 @@ data class RunState(
 
     companion object {
         private const val INITIAL_PLAYER_HP = 100
-        private const val INITIAL_ROOM_ID = "start"
 
-        /** Creates the authoritative starting state without generating a dungeon route. */
-        fun initial(
-            seed: RunSeed,
-            currentRoomId: RoomId = RoomId(INITIAL_ROOM_ID),
-        ) = RunState(
-            seed = seed,
-            status = RunStatus.ACTIVE,
-            playerHp = HitPoints(INITIAL_PLAYER_HP),
-            playerMaxHp = HitPoints(INITIAL_PLAYER_HP),
-            currentRoomId = currentRoomId,
-            completedRoomIds = emptySet(),
-            ownedRelicIds = emptySet(),
-            rngState = RunRngState(seed.value),
-        )
+        /** Creates the authoritative starting state and consumes RNG only through route generation. */
+        fun initial(seed: RunSeed): RunState {
+            val generatedDungeon = DungeonGenerator.generate(seed)
+            return RunState(
+                seed = seed,
+                status = RunStatus.ACTIVE,
+                playerHp = HitPoints(INITIAL_PLAYER_HP),
+                playerMaxHp = HitPoints(INITIAL_PLAYER_HP),
+                dungeonGraph = generatedDungeon.graph,
+                currentRoomId = generatedDungeon.graph.startRoomId,
+                completedRoomIds = emptySet(),
+                ownedRelicIds = emptySet(),
+                rngState = generatedDungeon.nextRngState,
+            )
+        }
     }
 }

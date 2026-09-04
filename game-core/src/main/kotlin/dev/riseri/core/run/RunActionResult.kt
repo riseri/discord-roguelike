@@ -15,6 +15,10 @@ sealed interface RunEvent {
         val roomId: RoomId,
     ) : RunEvent
 
+    data class RoomChosen(
+        val roomId: RoomId,
+    ) : RunEvent
+
     data object RunWon : RunEvent
 
     data object RunLost : RunEvent

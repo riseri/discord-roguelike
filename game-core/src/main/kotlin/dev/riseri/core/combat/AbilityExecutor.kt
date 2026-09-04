@@ -45,13 +45,23 @@ object AbilityExecutor {
     private fun executeSlash(
         state: CombatState,
         action: GameAction.UseAbility,
-    ): ActionResult = executeAttack(state, action, KnightAbilityValues.SLASH_DAMAGE, stun = false)
+    ): ActionResult {
+        val relicEffect = CombatRelicEffects.slashBonus(state.relicIds, state.player)
+        return executeAttack(
+            state,
+            action,
+            KnightAbilityValues.SLASH_DAMAGE + (relicEffect?.amount ?: 0),
+            stun = false,
+            relicEffect = relicEffect,
+        )
+    }
 
     private fun executeAttack(
         state: CombatState,
         action: GameAction.UseAbility,
         damage: Int,
         stun: Boolean,
+        relicEffect: TriggeredRelicEffect? = null,
     ): ActionResult {
         if (action.targetId == state.player.entityId) {
             throw InvalidActionException(InvalidActionReason.INVALID_TARGET)
@@ -88,6 +98,9 @@ object AbilityExecutor {
                         targetId = target.entityId,
                     ),
                 )
+                if (relicEffect != null) {
+                    add(GameEvent.RelicTriggered(relicEffect.relicId, state.player.entityId))
+                }
                 if (stun && !enemyDefeated) add(GameEvent.EntityStunned(target.entityId, 1))
                 add(
                     GameEvent.DamageDealt(
@@ -133,23 +146,26 @@ object AbilityExecutor {
             throw InvalidActionException(reason)
         }
 
-        val updatedPlayer =
-            state.player.copy(block = Block(state.player.block.value + KnightAbilityValues.GUARD_BLOCK))
+        val relicEffect = CombatRelicEffects.guardBonus(state.relicIds)
+        val blockGained = KnightAbilityValues.GUARD_BLOCK + (relicEffect?.amount ?: 0)
+        val updatedPlayer = state.player.copy(block = Block(state.player.block.value + blockGained))
 
         return ActionResult(
             state = state.copy(player = updatedPlayer, phase = CombatPhase.ENEMY),
             events =
-                listOf(
-                    GameEvent.AbilityUsed(
-                        actorId = state.player.entityId,
-                        abilityId = action.abilityId,
-                        targetId = state.player.entityId,
-                    ),
-                    GameEvent.BlockGained(
-                        entityId = state.player.entityId,
-                        amount = KnightAbilityValues.GUARD_BLOCK,
-                    ),
-                ),
+                buildList {
+                    add(
+                        GameEvent.AbilityUsed(
+                            actorId = state.player.entityId,
+                            abilityId = action.abilityId,
+                            targetId = state.player.entityId,
+                        ),
+                    )
+                    if (relicEffect != null) {
+                        add(GameEvent.RelicTriggered(relicEffect.relicId, state.player.entityId))
+                    }
+                    add(GameEvent.BlockGained(entityId = state.player.entityId, amount = blockGained))
+                },
         )
     }
 }

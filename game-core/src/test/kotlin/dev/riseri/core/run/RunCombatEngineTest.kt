@@ -13,6 +13,7 @@ import dev.riseri.core.combat.GridPosition
 import dev.riseri.core.combat.HitPoints
 import dev.riseri.core.combat.IntentionId
 import dev.riseri.core.combat.TacticalMovement
+import dev.riseri.core.relic.RelicContentId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -44,11 +45,13 @@ class RunCombatEngineTest {
 
     @Test
     fun `starts combat from the current run player and rng state`() {
+        val relicId = RelicContentId("iron-bulwark")
         val run =
             RunState.initial(RunSeed(42)).copy(
                 playerHp = HitPoints(37),
                 playerMaxHp = HitPoints(80),
                 rngState = RunRngState(7_321),
+                ownedRelicIds = setOf(relicId),
             )
 
         val started = RunCombatEngine.start(run, enemyDefinitions)
@@ -56,6 +59,7 @@ class RunCombatEngineTest {
         assertEquals(HitPoints(37), started.activeCombat?.player?.currentHp)
         assertEquals(HitPoints(80), started.activeCombat?.player?.maxHp)
         assertEquals(started.rngState.value, started.activeCombat?.rngState?.value)
+        assertEquals(setOf(relicId), started.activeCombat?.relicIds)
     }
 
     @Test

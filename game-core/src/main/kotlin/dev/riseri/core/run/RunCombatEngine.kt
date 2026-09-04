@@ -59,6 +59,7 @@ object RunCombatEngine {
                     ),
                 enemies = generated.encounter.enemies,
                 rngState = generated.nextRngState,
+                relicIds = state.ownedRelicIds,
             )
         val readyCombat = EnemyTurnExecutor.generateIntentions(initialCombat, enemyDefinitions).state
 

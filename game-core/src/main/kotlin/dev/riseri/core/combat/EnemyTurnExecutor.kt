@@ -42,6 +42,7 @@ object EnemyTurnExecutor {
 
         var player = state.player
         val events = mutableListOf<GameEvent>()
+        var combatWon = false
 
         // List order is combat order. This makes multi-enemy resolution deterministic and ensures
         // the first lethal action prevents every later enemy from acting.
@@ -50,7 +51,7 @@ object EnemyTurnExecutor {
             val intention = enemy.currentIntention
             // Once the player is defeated, later enemies must keep their unresolved intentions
             // rather than continuing to act against an already terminal combat.
-            if (player.currentHp.value == 0 || enemy.currentHp.value == 0 || intention == null) {
+            if (player.currentHp.value == 0 || combatWon || enemy.currentHp.value == 0 || intention == null) {
                 resolvedEnemies += enemy
             } else if (enemy.stunnedTurns > 0) {
                 resolvedEnemies += enemy.copy(stunnedTurns = enemy.stunnedTurns - 1, currentIntention = null)
@@ -83,8 +84,33 @@ object EnemyTurnExecutor {
                     val damageResult = applyDamage(player, enemy.entityId, intention.damage)
                     player = damageResult.player
                     events += damageResult.events
+                    // Retaliation resolves from the post-movement positions and after incoming
+                    // damage, but before defeat and terminal checks end the enemy phase.
+                    val retaliation =
+                        CombatRelicEffects.blockRetaliation(
+                            state.relicIds,
+                            damageResult.blockAbsorbed,
+                            player.position,
+                            actingEnemy.position,
+                        )
+                    if (retaliation != null) {
+                        val retaliationDamage = minOf(retaliation.amount, actingEnemy.currentHp.value)
+                        actingEnemy =
+                            actingEnemy.copy(
+                                currentHp = HitPoints(actingEnemy.currentHp.value - retaliationDamage),
+                            )
+                        events += GameEvent.RelicTriggered(retaliation.relicId, player.entityId)
+                        events += GameEvent.DamageDealt(player.entityId, actingEnemy.entityId, retaliationDamage)
+                        if (actingEnemy.currentHp.value == 0) {
+                            events += GameEvent.EntityDefeated(actingEnemy.entityId)
+                        }
+                    }
                 }
                 resolvedEnemies += actingEnemy.copy(currentIntention = null)
+                // A lethal retaliation must end combat before any new intentions are generated.
+                combatWon =
+                    resolvedEnemies.all { it.currentHp.value == 0 } &&
+                    state.enemies.drop(enemyIndex + 1).all { it.currentHp.value == 0 }
             }
         }
 
@@ -102,6 +128,19 @@ object EnemyTurnExecutor {
                             GameEvent.EntityDefeated(player.entityId),
                             GameEvent.CombatLost,
                         ),
+            )
+        }
+
+        if (combatWon) {
+            return ActionResult(
+                state =
+                    state.copy(
+                        player = player,
+                        enemies = resolvedEnemies,
+                        phase = CombatPhase.PLAYER,
+                        status = CombatStatus.WON,
+                    ),
+                events = events + GameEvent.CombatWon,
             )
         }
 
@@ -147,11 +186,13 @@ object EnemyTurnExecutor {
                     block = Block(player.block.value - blockAbsorbed),
                 ),
             events = events,
+            blockAbsorbed = blockAbsorbed,
         )
     }
 
     private data class DamageResult(
         val player: PlayerCombatState,
         val events: List<GameEvent>,
+        val blockAbsorbed: Int,
     )
 }

@@ -8,6 +8,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.context.WebApplicationContext
@@ -107,6 +108,38 @@ class PlayableEncounterIntegrationTest {
         assertEquals(combat.path("player").path("currentHp").asInt(), run.path("playerHp").asInt())
         assertEquals(1, run.path("completedRoomIds").size())
         assertEquals("start", run.path("completedRoomIds").get(0).stringValue())
+        assertEquals(2, run.path("availableNextRooms").size())
+        assertEquals(
+            "event",
+            run
+                .path("availableNextRooms")
+                .get(0)
+                .path("id")
+                .stringValue(),
+        )
+        assertEquals(
+            "treasure",
+            run
+                .path("availableNextRooms")
+                .get(1)
+                .path("id")
+                .stringValue(),
+        )
+
+        mockMvc
+            .perform(
+                post("/api/runs/current/rooms")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"roomId":"boss"}"""),
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.code").value("ROOM_NOT_REACHABLE"))
+
+        assertEquals("start", getJson("/api/runs/current").path("currentRoom").path("id").stringValue())
+
+        val advanced = postJson("/api/runs/current/rooms", """{"roomId":"event"}""")
+        assertEquals("event", advanced.path("currentRoom").path("id").stringValue())
+        assertEquals("EVENT", advanced.path("currentRoom").path("type").stringValue())
+        assertEquals(0, advanced.path("availableNextRooms").size())
     }
 
     private fun postJson(

@@ -1,7 +1,11 @@
 package dev.riseri.server.run
 
 import dev.riseri.core.run.DungeonGenerator
+import dev.riseri.core.run.RoomType
+import dev.riseri.core.run.RunAction
+import dev.riseri.core.run.RunEngine
 import dev.riseri.core.run.RunSeed
+import dev.riseri.core.run.RunState
 import org.hamcrest.Matchers.empty
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
@@ -43,6 +47,9 @@ class RunControllerTest {
             .andExpect(jsonPath("$.playerHp").value(100))
             .andExpect(jsonPath("$.playerMaxHp").value(100))
             .andExpect(jsonPath("$.currentRoomId").value("start"))
+            .andExpect(jsonPath("$.currentRoom.id").value("start"))
+            .andExpect(jsonPath("$.currentRoom.type").value("COMBAT"))
+            .andExpect(jsonPath("$.availableNextRooms", empty<Any>()))
             .andExpect(jsonPath("$.completedRoomIds", empty<Any>()))
             .andExpect(jsonPath("$.ownedRelicIds", empty<Any>()))
             .andExpect(jsonPath("$.rngState").value(expectedRngState))
@@ -69,6 +76,53 @@ class RunControllerTest {
         val second = RunService().start(7_321)
 
         assertEquals(first, second)
+    }
+
+    @Test
+    fun `maps current room and available choices to stable room DTOs`() {
+        val initial = RunState.initial(RunSeed(42))
+        val completed = RunEngine.execute(initial, RunAction.CompleteCurrentRoom).state
+
+        val response = RunResponse.from(completed)
+
+        assertEquals(RoomResponse("start", RoomType.COMBAT), response.currentRoom)
+        assertEquals(
+            listOf(
+                RoomResponse("event", RoomType.EVENT),
+                RoomResponse("treasure", RoomType.TREASURE),
+            ),
+            response.availableNextRooms,
+        )
+    }
+
+    @Test
+    fun `rejects unresolved room transitions without changing the run`() {
+        runService.start(42)
+        val before = runService.current()
+
+        mockMvc
+            .perform(
+                post("/api/runs/current/rooms")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"roomId":"event"}"""),
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.code").value("CURRENT_ROOM_NOT_COMPLETED"))
+
+        assertEquals(before, runService.current())
+    }
+
+    @Test
+    fun `rejects a missing room id with a clear client error`() {
+        runService.start(42)
+
+        mockMvc
+            .perform(
+                post("/api/runs/current/rooms")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"),
+            ).andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_ID"))
+            .andExpect(jsonPath("$.message").value("Room id is required"))
     }
 
     @Test

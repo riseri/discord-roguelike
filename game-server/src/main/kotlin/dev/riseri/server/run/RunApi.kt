@@ -1,6 +1,9 @@
 package dev.riseri.server.run
 
 import dev.riseri.core.run.InvalidRunActionException
+import dev.riseri.core.run.RoomNode
+import dev.riseri.core.run.RoomType
+import dev.riseri.core.run.RunEngine
 import dev.riseri.core.run.RunState
 import dev.riseri.core.run.RunStatus
 import org.springframework.http.HttpStatus
@@ -17,6 +20,20 @@ data class StartRunRequest(
     val seed: Long? = null,
 )
 
+data class ChooseRoomRequest(
+    val roomId: String? = null,
+)
+
+/** Stable transport representation of a room without exposing dungeon topology. */
+data class RoomResponse(
+    val id: String,
+    val type: RoomType,
+) {
+    companion object {
+        fun from(room: RoomNode) = RoomResponse(room.id.value, room.type)
+    }
+}
+
 /** Client-facing projection of authoritative run state. */
 data class RunResponse(
     val seed: Long,
@@ -24,6 +41,8 @@ data class RunResponse(
     val playerHp: Int,
     val playerMaxHp: Int,
     val currentRoomId: String,
+    val currentRoom: RoomResponse,
+    val availableNextRooms: List<RoomResponse>,
     val completedRoomIds: List<String>,
     val ownedRelicIds: List<String>,
     val rngState: Long,
@@ -36,6 +55,11 @@ data class RunResponse(
                 playerHp = state.playerHp.value,
                 playerMaxHp = state.playerMaxHp.value,
                 currentRoomId = state.currentRoomId.value,
+                currentRoom = RoomResponse.from(state.dungeonGraph.rooms.getValue(state.currentRoomId)),
+                availableNextRooms =
+                    RunEngine.availableNextRoomIds(state).map { roomId ->
+                        RoomResponse.from(state.dungeonGraph.rooms.getValue(roomId))
+                    },
                 completedRoomIds = state.completedRoomIds.map { it.value }.sorted(),
                 ownedRelicIds = state.ownedRelicIds.map { it.value }.sorted(),
                 rngState = state.rngState.value,
@@ -60,6 +84,11 @@ class RunController(
 
     @GetMapping("/current")
     fun current(): RunResponse = runService.current()
+
+    @PostMapping("/current/rooms")
+    fun chooseRoom(
+        @RequestBody request: ChooseRoomRequest,
+    ): RunResponse = runService.chooseRoom(request.roomId)
 }
 
 @RestControllerAdvice
@@ -75,4 +104,10 @@ class RunExceptionHandler {
         ResponseEntity
             .status(HttpStatus.CONFLICT)
             .body(RunApiErrorResponse(exception.reason.name, exception.message.orEmpty()))
+
+    @ExceptionHandler(InvalidRoomIdException::class)
+    fun invalidRoomId(exception: InvalidRoomIdException): ResponseEntity<RunApiErrorResponse> =
+        ResponseEntity
+            .badRequest()
+            .body(RunApiErrorResponse("INVALID_ROOM_ID", exception.message.orEmpty()))
 }

@@ -66,6 +66,7 @@ data class CombatEventResponse(
     val from: PositionResponse? = null,
     val to: PositionResponse? = null,
     val turns: Int? = null,
+    val relicId: String? = null,
 ) {
     companion object {
         fun from(event: GameEvent): CombatEventResponse =
@@ -135,6 +136,14 @@ data class CombatEventResponse(
                         type = "BLOCK_ABSORBED",
                         entityId = event.entityId.value,
                         amount = event.amount,
+                    )
+                }
+
+                is GameEvent.RelicTriggered -> {
+                    CombatEventResponse(
+                        type = "RELIC_TRIGGERED",
+                        entityId = event.ownerId.value,
+                        relicId = event.relicId.value,
                     )
                 }
 

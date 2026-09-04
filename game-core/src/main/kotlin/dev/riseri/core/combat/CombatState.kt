@@ -1,5 +1,7 @@
 package dev.riseri.core.combat
 
+import dev.riseri.core.relic.RelicContentId
+
 enum class CombatPhase {
     PLAYER,
     ENEMY,
@@ -18,6 +20,7 @@ data class CombatState(
     val rngState: CombatRngState = CombatRngState(0),
     val status: CombatStatus = CombatStatus.ACTIVE,
     val grid: TacticalGrid = TacticalGrid(),
+    val relicIds: Set<RelicContentId> = emptySet(),
 ) {
     init {
         val entityIds = listOf(player.entityId) + enemies.map { it.entityId }

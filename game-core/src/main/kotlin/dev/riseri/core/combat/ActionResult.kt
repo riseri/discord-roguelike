@@ -1,5 +1,7 @@
 package dev.riseri.core.combat
 
+import dev.riseri.core.relic.RelicContentId
+
 data class ActionResult(
     val state: CombatState,
     // Events stay in resolution order so callers can present the authoritative sequence without
@@ -50,6 +52,11 @@ sealed interface GameEvent {
     data class BlockAbsorbed(
         val entityId: EntityId,
         val amount: Int,
+    ) : GameEvent
+
+    data class RelicTriggered(
+        val relicId: RelicContentId,
+        val ownerId: EntityId,
     ) : GameEvent
 
     data class EntityDefeated(

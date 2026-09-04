@@ -39,11 +39,15 @@ object RunCombatEngine {
     ): RunState {
         requireCombatCanStart(state)
 
+        val encounterRngState = CombatRngState(state.rngState.value)
         val generated =
-            EncounterGenerator.generateStarter(
-                enemyDefinitions.values,
-                CombatRngState(state.rngState.value),
-            )
+            if (state.currentRoomId == state.dungeonGraph.startRoomId) {
+                EncounterGenerator.generateStarter(enemyDefinitions.values, encounterRngState)
+            } else {
+                // Only the first room uses the fixed onboarding encounter. Later rooms consume
+                // the continuing run stream to create a fresh supported enemy composition.
+                EncounterGenerator.generate(enemyDefinitions.values, encounterRngState)
+            }
         val initialCombat =
             CombatState(
                 player =

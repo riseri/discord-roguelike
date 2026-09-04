@@ -8,6 +8,9 @@ data class CombatEncounter(
         require(enemies.map { it.entityId }.distinct().size == enemies.size) {
             "Combat encounter enemy entity identifiers must be unique"
         }
+        require(enemies.map { it.position }.distinct().size == enemies.size) {
+            "Combat encounter enemy positions must not overlap"
+        }
     }
 }
 
@@ -19,6 +22,7 @@ data class EncounterGenerationResult(
 object EncounterGenerator {
     private const val ENEMIES_PER_ENCOUNTER = 2
     private val STARTER_ENEMY_CONTENT_ID = EnemyContentId("goblin")
+    private val ENEMY_STARTING_POSITIONS = listOf(GridPosition(6, 1), GridPosition(6, 4))
 
     /** Creates the fixed two-Goblin tactical encounter used by the playable vertical slice. */
     fun generateStarter(
@@ -33,8 +37,8 @@ object EncounterGenerator {
             encounter =
                 CombatEncounter(
                     listOf(
-                        goblin.createCombatState(EntityId("goblin-1")).copy(position = GridPosition(6, 1)),
-                        goblin.createCombatState(EntityId("goblin-2")).copy(position = GridPosition(6, 4)),
+                        goblin.createCombatState(EntityId("goblin-1")).copy(position = ENEMY_STARTING_POSITIONS[0]),
+                        goblin.createCombatState(EntityId("goblin-2")).copy(position = ENEMY_STARTING_POSITIONS[1]),
                     ),
                 ),
             // The fixed starter composition makes no random selection. Preserving the state keeps
@@ -59,7 +63,9 @@ object EncounterGenerator {
                 val random = nextRngState.nextInt(orderedDefinitions.size)
                 nextRngState = random.nextState
                 val definition = orderedDefinitions[random.value]
-                definition.createCombatState(EntityId("${definition.id.value}-${slot + 1}"))
+                definition
+                    .createCombatState(EntityId("${definition.id.value}-${slot + 1}"))
+                    .copy(position = ENEMY_STARTING_POSITIONS[slot])
             }
 
         return EncounterGenerationResult(

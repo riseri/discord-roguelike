@@ -47,6 +47,12 @@ class EncounterGeneratorTest {
                 .distinct()
                 .size,
         )
+        assertEquals(
+            setOf(GridPosition(6, 1), GridPosition(6, 4)),
+            result.encounter.enemies
+                .map { it.position }
+                .toSet(),
+        )
         result.encounter.enemies.forEach { enemy ->
             val definition = definitions.single { it.id == enemy.enemyContentId }
             assertEquals(definition.maxHp, enemy.currentHp)
@@ -59,6 +65,15 @@ class EncounterGeneratorTest {
     fun `rejects generation without available enemies`() {
         assertFailsWith<IllegalArgumentException> {
             EncounterGenerator.generate(emptyList(), CombatRngState(42))
+        }
+    }
+
+    @Test
+    fun `rejects overlapping encounter positions`() {
+        val enemy = definitions.first().createCombatState(EntityId("goblin-1"))
+
+        assertFailsWith<IllegalArgumentException> {
+            CombatEncounter(listOf(enemy, enemy.copy(entityId = EntityId("goblin-2"))))
         }
     }
 

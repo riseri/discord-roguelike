@@ -1,6 +1,8 @@
 package dev.riseri.core.run
 
 import dev.riseri.core.combat.AbilityId
+import dev.riseri.core.combat.Block
+import dev.riseri.core.combat.CombatPhase
 import dev.riseri.core.combat.CombatStatus
 import dev.riseri.core.combat.EnemyContentId
 import dev.riseri.core.combat.EnemyDefinition
@@ -14,6 +16,8 @@ import dev.riseri.core.combat.TacticalMovement
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 class RunCombatEngineTest {
     private val goblin =
@@ -26,7 +30,17 @@ class RunCombatEngineTest {
                     EnemyIntention(IntentionId("lunge"), damage = 5),
                 ),
         )
-    private val enemyDefinitions = mapOf(goblin.id to goblin)
+    private val goblinBrute =
+        EnemyDefinition(
+            id = EnemyContentId("goblin-brute"),
+            maxHp = HitPoints(70),
+            intentions =
+                listOf(
+                    EnemyIntention(IntentionId("punch"), damage = 8),
+                    EnemyIntention(IntentionId("heavy-swing"), damage = 20),
+                ),
+        )
+    private val enemyDefinitions = listOf(goblin, goblinBrute).associateBy { it.id }
 
     @Test
     fun `starts combat from the current run player and rng state`() {
@@ -89,6 +103,58 @@ class RunCombatEngineTest {
 
         assertEquals(destination, chosen.currentRoomId)
         assertEquals(null, chosen.activeCombat)
+    }
+
+    @Test
+    fun `later encounter carries hp and rng while resetting tactical state`() {
+        val firstResult = playToTerminal(RunState.initial(RunSeed(42)))
+        val firstCombat = firstResult.state.activeCombat!!
+        val destination =
+            firstResult.state.dungeonGraph.rooms
+                .getValue(firstResult.state.currentRoomId)
+                .nextRoomIds
+                .first()
+        val advanced = RunEngine.execute(firstResult.state, RunAction.ChooseRoom(destination)).state
+
+        val nextRun = RunCombatEngine.start(advanced, enemyDefinitions)
+        val nextCombat = nextRun.activeCombat!!
+
+        assertEquals(firstCombat.player.currentHp, nextCombat.player.currentHp)
+        assertEquals(firstCombat.player.maxHp, nextCombat.player.maxHp)
+        assertEquals(Block(0), nextCombat.player.block)
+        assertEquals(GridPosition(1, 3), nextCombat.player.position)
+        assertEquals(false, nextCombat.player.movedThisPhase)
+        assertEquals(CombatPhase.PLAYER, nextCombat.phase)
+        assertEquals(CombatStatus.ACTIVE, nextCombat.status)
+        assertEquals(nextCombat.rngState.value, nextRun.rngState.value)
+        assertNotEquals(firstCombat.enemies, nextCombat.enemies)
+        assertEquals(
+            nextCombat.enemies.size + 1,
+            (nextCombat.enemies.map { it.position } + nextCombat.player.position).distinct().size,
+        )
+    }
+
+    @Test
+    fun `later rooms can select a different supported encounter`() {
+        val initial = RunState.initial(RunSeed(42))
+        val laterRoom =
+            initial.copy(
+                currentRoomId = RoomId("event"),
+                completedRoomIds = setOf(initial.currentRoomId),
+                rngState = RunRngState(0),
+            )
+
+        val started = RunCombatEngine.start(laterRoom, enemyDefinitions)
+
+        assertTrue(started.activeCombat!!.enemies.all { it.enemyContentId == goblinBrute.id })
+    }
+
+    @Test
+    fun `same seed actions and route reproduce the next tactical encounter`() {
+        val first = playToNextEncounter(RunSeed(7_321))
+        val second = playToNextEncounter(RunSeed(7_321))
+
+        assertEquals(first, second)
     }
 
     @Test
@@ -155,6 +221,17 @@ class RunCombatEngineTest {
                 .sortedWith(compareBy({ it.y }, { it.x }))
                 .first()
         return RunCombatEngine.execute(started, GameAction.MoveUnit(destination), enemyDefinitions)
+    }
+
+    private fun playToNextEncounter(seed: RunSeed): RunState {
+        val completed = playToTerminal(RunState.initial(seed)).state
+        val destination =
+            completed.dungeonGraph.rooms
+                .getValue(completed.currentRoomId)
+                .nextRoomIds
+                .first()
+        val advanced = RunEngine.execute(completed, RunAction.ChooseRoom(destination)).state
+        return RunCombatEngine.start(advanced, enemyDefinitions)
     }
 
     private fun playToTerminal(initial: RunState): RunCombatActionResult {

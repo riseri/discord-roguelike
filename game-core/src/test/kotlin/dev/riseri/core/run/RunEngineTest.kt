@@ -17,25 +17,96 @@ class RunEngineTest {
     @Test
     fun `same state and action produce the same transition`() {
         val state = RunState.initial(RunSeed(7_321))
-        val action = RunAction.CompleteCurrentRoom
+        val completed = RunEngine.execute(state, RunAction.CompleteCurrentRoom).state
+        val action =
+            RunAction.ChooseRoom(
+                completed.dungeonGraph.rooms
+                    .getValue(completed.currentRoomId)
+                    .nextRoomIds
+                    .first(),
+            )
 
-        val first = RunEngine.execute(state, action)
-        val second = RunEngine.execute(state, action)
+        val first = RunEngine.execute(completed, action)
+        val second = RunEngine.execute(completed, action)
 
         assertEquals(first, second)
-        assertEquals(RunRngState(7_321), first.state.rngState)
+        assertEquals(completed.rngState, first.state.rngState)
     }
 
     @Test
     fun `completes the current room without mutating the prior state`() {
-        val state = RunState.initial(RunSeed(42), RoomId("room-1"))
+        val state = RunState.initial(RunSeed(42))
 
         val result = RunEngine.execute(state, RunAction.CompleteCurrentRoom)
 
         assertNotSame(state, result.state)
         assertEquals(emptySet(), state.completedRoomIds)
-        assertEquals(setOf(RoomId("room-1")), result.state.completedRoomIds)
-        assertEquals(listOf(RunEvent.RoomCompleted(RoomId("room-1"))), result.events)
+        assertEquals(setOf(RoomId("start")), result.state.completedRoomIds)
+        assertEquals(listOf(RunEvent.RoomCompleted(RoomId("start"))), result.events)
+    }
+
+    @Test
+    fun `chooses a reachable room through an immutable transition`() {
+        val initial = RunState.initial(RunSeed(42))
+        val completed = RunEngine.execute(initial, RunAction.CompleteCurrentRoom).state
+        val destination =
+            completed.dungeonGraph.rooms
+                .getValue(completed.currentRoomId)
+                .nextRoomIds
+                .first()
+
+        val result = RunEngine.execute(completed, RunAction.ChooseRoom(destination))
+
+        assertNotSame(completed, result.state)
+        assertEquals(RoomId("start"), completed.currentRoomId)
+        assertEquals(destination, result.state.currentRoomId)
+        assertEquals(completed.completedRoomIds, result.state.completedRoomIds)
+        assertEquals(listOf(RunEvent.RoomChosen(destination)), result.events)
+    }
+
+    @Test
+    fun `rejects room choices until the current room is completed`() {
+        val state = RunState.initial(RunSeed(42))
+        val destination =
+            state.dungeonGraph.rooms
+                .getValue(state.currentRoomId)
+                .nextRoomIds
+                .first()
+
+        val exception =
+            assertFailsWith<InvalidRunActionException> {
+                RunEngine.execute(state, RunAction.ChooseRoom(destination))
+            }
+
+        assertEquals(InvalidRunActionReason.CURRENT_ROOM_NOT_COMPLETED, exception.reason)
+    }
+
+    @Test
+    fun `rejects unreachable and previously completed room choices`() {
+        val initial = RunState.initial(RunSeed(42))
+        val completedStart = RunEngine.execute(initial, RunAction.CompleteCurrentRoom).state
+
+        val unreachableException =
+            assertFailsWith<InvalidRunActionException> {
+                RunEngine.execute(completedStart, RunAction.ChooseRoom(RoomId("boss")))
+            }
+        assertEquals(InvalidRunActionReason.ROOM_NOT_REACHABLE, unreachableException.reason)
+
+        val nextRoom =
+            completedStart.dungeonGraph.rooms
+                .getValue(completedStart.currentRoomId)
+                .nextRoomIds
+                .first()
+        val completedNext =
+            RunEngine
+                .execute(completedStart, RunAction.ChooseRoom(nextRoom))
+                .state
+                .let { RunEngine.execute(it, RunAction.CompleteCurrentRoom).state }
+        val revisitedException =
+            assertFailsWith<InvalidRunActionException> {
+                RunEngine.execute(completedNext, RunAction.ChooseRoom(RoomId("start")))
+            }
+        assertEquals(InvalidRunActionReason.ROOM_ALREADY_COMPLETED, revisitedException.reason)
     }
 
     @Test
@@ -79,7 +150,7 @@ class RunEngineTest {
 
     @Test
     fun `rejects completing the same room twice`() {
-        val state = RunState.initial(RunSeed(42), RoomId("room-1"))
+        val state = RunState.initial(RunSeed(42))
         val completed = RunEngine.execute(state, RunAction.CompleteCurrentRoom).state
 
         val exception =
@@ -96,6 +167,7 @@ class RunEngineTest {
             listOf(
                 RunAction.StartRun(RunSeed(99)),
                 RunAction.CompleteCurrentRoom,
+                RunAction.ChooseRoom(RoomId("event")),
                 RunAction.WinRun,
                 RunAction.LoseRun,
             )

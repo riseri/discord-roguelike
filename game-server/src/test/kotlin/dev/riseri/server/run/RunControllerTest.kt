@@ -1,5 +1,7 @@
 package dev.riseri.server.run
 
+import dev.riseri.core.run.DungeonGenerator
+import dev.riseri.core.run.RunSeed
 import org.hamcrest.Matchers.empty
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
@@ -28,6 +30,8 @@ class RunControllerTest {
 
     @Test
     fun `starts and reads the current authoritative run`() {
+        val expectedRngState = DungeonGenerator.generate(RunSeed(42)).nextRngState.value
+
         mockMvc
             .perform(
                 post("/api/runs")
@@ -41,13 +45,13 @@ class RunControllerTest {
             .andExpect(jsonPath("$.currentRoomId").value("start"))
             .andExpect(jsonPath("$.completedRoomIds", empty<Any>()))
             .andExpect(jsonPath("$.ownedRelicIds", empty<Any>()))
-            .andExpect(jsonPath("$.rngState").value(42))
+            .andExpect(jsonPath("$.rngState").value(expectedRngState))
 
         mockMvc
             .perform(get("/api/runs/current"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.seed").value(42))
-            .andExpect(jsonPath("$.rngState").value(42))
+            .andExpect(jsonPath("$.rngState").value(expectedRngState))
     }
 
     @Test

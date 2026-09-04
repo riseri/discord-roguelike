@@ -5,6 +5,8 @@ enum class InvalidRunActionReason {
     RUN_ALREADY_STARTED,
     RUN_ENDED,
     ROOM_ALREADY_COMPLETED,
+    CURRENT_ROOM_NOT_COMPLETED,
+    ROOM_NOT_REACHABLE,
 }
 
 class InvalidRunActionException(
@@ -28,6 +30,7 @@ object RunEngine {
         return when (action) {
             is RunAction.StartRun -> startRun(state, action)
             RunAction.CompleteCurrentRoom -> completeCurrentRoom(requireActiveRun(state))
+            is RunAction.ChooseRoom -> chooseRoom(requireActiveRun(state), action)
             RunAction.WinRun -> endRun(requireActiveRun(state), RunStatus.WON)
             RunAction.LoseRun -> endRun(requireActiveRun(state), RunStatus.LOST)
         }
@@ -55,6 +58,29 @@ object RunEngine {
         return RunActionResult(
             state = state.copy(completedRoomIds = state.completedRoomIds + state.currentRoomId),
             events = listOf(RunEvent.RoomCompleted(state.currentRoomId)),
+        )
+    }
+
+    private fun chooseRoom(
+        state: RunState,
+        action: RunAction.ChooseRoom,
+    ): RunActionResult {
+        if (state.currentRoomId !in state.completedRoomIds) {
+            throw InvalidRunActionException(InvalidRunActionReason.CURRENT_ROOM_NOT_COMPLETED)
+        }
+        if (action.roomId in state.completedRoomIds) {
+            throw InvalidRunActionException(InvalidRunActionReason.ROOM_ALREADY_COMPLETED)
+        }
+
+        val currentRoom = state.dungeonGraph.rooms.getValue(state.currentRoomId)
+        if (action.roomId !in currentRoom.nextRoomIds) {
+            throw InvalidRunActionException(InvalidRunActionReason.ROOM_NOT_REACHABLE)
+        }
+
+        // A resolved encounter belongs to the completed room and cannot follow the player.
+        return RunActionResult(
+            state = state.copy(currentRoomId = action.roomId, activeCombat = null),
+            events = listOf(RunEvent.RoomChosen(action.roomId)),
         )
     }
 

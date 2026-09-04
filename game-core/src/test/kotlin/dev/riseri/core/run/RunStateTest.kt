@@ -15,11 +15,14 @@ import kotlin.test.assertTrue
 class RunStateTest {
     @Test
     fun `same seed produces identical initial state`() {
-        val first = RunState.initial(RunSeed(7_321))
-        val second = RunState.initial(RunSeed(7_321))
+        val seed = RunSeed(7_321)
+        val generatedDungeon = DungeonGenerator.generate(seed)
+        val first = RunState.initial(seed)
+        val second = RunState.initial(seed)
 
         assertEquals(first, second)
-        assertEquals(RunRngState(7_321), first.rngState)
+        assertEquals(generatedDungeon.graph, first.dungeonGraph)
+        assertEquals(generatedDungeon.nextRngState, first.rngState)
     }
 
     @Test
@@ -30,6 +33,7 @@ class RunStateTest {
         assertEquals(RunStatus.ACTIVE, state.status)
         assertEquals(HitPoints(100), state.playerHp)
         assertEquals(HitPoints(100), state.playerMaxHp)
+        assertEquals(DungeonGenerator.generate(RunSeed(42)).graph, state.dungeonGraph)
         assertEquals(RoomId("start"), state.currentRoomId)
         assertTrue(state.completedRoomIds.isEmpty())
         assertTrue(state.ownedRelicIds.isEmpty())
@@ -50,11 +54,11 @@ class RunStateTest {
     fun `tracks completed rooms and owned relics`() {
         val state =
             runState(
-                completedRoomIds = setOf(RoomId("room-1"), RoomId("room-2")),
+                completedRoomIds = setOf(RoomId("start"), RoomId("event")),
                 ownedRelicIds = setOf(RelicId("iron-bulwark")),
             )
 
-        assertEquals(setOf(RoomId("room-1"), RoomId("room-2")), state.completedRoomIds)
+        assertEquals(setOf(RoomId("start"), RoomId("event")), state.completedRoomIds)
         assertEquals(setOf(RelicId("iron-bulwark")), state.ownedRelicIds)
     }
 
@@ -76,6 +80,18 @@ class RunStateTest {
     fun `rejects blank room and relic identifiers`() {
         assertFailsWith<IllegalArgumentException> { RoomId(" ") }
         assertFailsWith<IllegalArgumentException> { RelicId("") }
+    }
+
+    @Test
+    fun `rejects run progress outside its dungeon graph`() {
+        val state = RunState.initial(RunSeed(42))
+
+        assertFailsWith<IllegalArgumentException> {
+            state.copy(currentRoomId = RoomId("missing"))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            state.copy(completedRoomIds = setOf(RoomId("missing")))
+        }
     }
 
     @Test
@@ -113,14 +129,18 @@ class RunStateTest {
         playerMaxHp: HitPoints = HitPoints(100),
         completedRoomIds: Set<RoomId> = emptySet(),
         ownedRelicIds: Set<RelicId> = emptySet(),
-    ) = RunState(
-        seed = RunSeed(42),
-        status = status,
-        playerHp = playerHp,
-        playerMaxHp = playerMaxHp,
-        currentRoomId = RoomId("entrance"),
-        completedRoomIds = completedRoomIds,
-        ownedRelicIds = ownedRelicIds,
-        rngState = RunRngState(99),
-    )
+    ): RunState {
+        val graph = DungeonGenerator.generate(RunSeed(42)).graph
+        return RunState(
+            seed = RunSeed(42),
+            status = status,
+            playerHp = playerHp,
+            playerMaxHp = playerMaxHp,
+            dungeonGraph = graph,
+            currentRoomId = graph.startRoomId,
+            completedRoomIds = completedRoomIds,
+            ownedRelicIds = ownedRelicIds,
+            rngState = RunRngState(99),
+        )
+    }
 }

@@ -77,6 +77,21 @@ class RunCombatEngineTest {
     }
 
     @Test
+    fun `choosing the next room discards the resolved combat`() {
+        val completed = playToTerminal(RunState.initial(RunSeed(42))).state
+        val destination =
+            completed.dungeonGraph.rooms
+                .getValue(completed.currentRoomId)
+                .nextRoomIds
+                .first()
+
+        val chosen = RunEngine.execute(completed, RunAction.ChooseRoom(destination)).state
+
+        assertEquals(destination, chosen.currentRoomId)
+        assertEquals(null, chosen.activeCombat)
+    }
+
+    @Test
     fun `combat defeat marks the owning run lost without divergent terminal state`() {
         val lowHealthRun = RunState.initial(RunSeed(42)).copy(playerHp = HitPoints(5))
         val started = RunCombatEngine.start(lowHealthRun, enemyDefinitions)

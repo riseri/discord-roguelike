@@ -1,5 +1,6 @@
 package dev.riseri.core.run
 
+import dev.riseri.core.relic.RelicContentId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -188,6 +189,8 @@ class RunEngineTest {
                 RunAction.StartRun(RunSeed(99)),
                 RunAction.CompleteCurrentRoom,
                 RunAction.ChooseRoom(RoomId("event")),
+                RunAction.OfferReward,
+                RunAction.SelectReward(RelicContentId("iron-bulwark")),
                 RunAction.WinRun,
                 RunAction.LoseRun,
             )

@@ -1,5 +1,7 @@
 package dev.riseri.core.run
 
+import dev.riseri.core.relic.RelicDefinition
+
 enum class InvalidRunActionReason {
     RUN_NOT_STARTED,
     RUN_ALREADY_STARTED,
@@ -7,6 +9,10 @@ enum class InvalidRunActionReason {
     ROOM_ALREADY_COMPLETED,
     CURRENT_ROOM_NOT_COMPLETED,
     ROOM_NOT_REACHABLE,
+    REWARD_ALREADY_PENDING,
+    INSUFFICIENT_RELIC_REWARDS_AVAILABLE,
+    NO_PENDING_REWARD,
+    REWARD_NOT_OFFERED,
 }
 
 class InvalidRunActionException(
@@ -33,6 +39,7 @@ object RunEngine {
     fun execute(
         state: RunState?,
         action: RunAction,
+        relicDefinitions: Collection<RelicDefinition> = emptyList(),
     ): RunActionResult {
         // Terminal status takes precedence so every action against an ended run fails consistently.
         if (state != null && state.status != RunStatus.ACTIVE) {
@@ -43,6 +50,8 @@ object RunEngine {
             is RunAction.StartRun -> startRun(state, action)
             RunAction.CompleteCurrentRoom -> completeCurrentRoom(requireActiveRun(state))
             is RunAction.ChooseRoom -> chooseRoom(requireActiveRun(state), action)
+            RunAction.OfferReward -> offerReward(requireActiveRun(state), relicDefinitions)
+            is RunAction.SelectReward -> selectReward(requireActiveRun(state), action)
             RunAction.WinRun -> endRun(requireActiveRun(state), RunStatus.WON)
             RunAction.LoseRun -> endRun(requireActiveRun(state), RunStatus.LOST)
         }
@@ -95,6 +104,63 @@ object RunEngine {
         )
     }
 
+    private fun offerReward(
+        state: RunState,
+        relicDefinitions: Collection<RelicDefinition>,
+    ): RunActionResult {
+        if (state.pendingRewardRelicIds.isNotEmpty()) {
+            throw InvalidRunActionException(InvalidRunActionReason.REWARD_ALREADY_PENDING)
+        }
+
+        // Sorting makes offers independent of map/set iteration order supplied by content adapters.
+        val eligibleRelicIds =
+            relicDefinitions
+                .map(RelicDefinition::id)
+                .distinct()
+                .filterNot(state.ownedRelicIds::contains)
+                .sortedBy { it.value }
+                .toMutableList()
+        if (eligibleRelicIds.size < REWARD_CHOICE_COUNT) {
+            throw InvalidRunActionException(InvalidRunActionReason.INSUFFICIENT_RELIC_REWARDS_AVAILABLE)
+        }
+
+        var rngState = state.rngState
+        val offeredRelicIds =
+            buildList {
+                repeat(REWARD_CHOICE_COUNT) {
+                    val random = rngState.nextInt(eligibleRelicIds.size)
+                    rngState = random.nextState
+                    add(eligibleRelicIds.removeAt(random.value))
+                }
+            }
+
+        return RunActionResult(
+            state = state.copy(pendingRewardRelicIds = offeredRelicIds, rngState = rngState),
+            events = listOf(RunEvent.RewardOffered(offeredRelicIds)),
+        )
+    }
+
+    private fun selectReward(
+        state: RunState,
+        action: RunAction.SelectReward,
+    ): RunActionResult {
+        if (state.pendingRewardRelicIds.isEmpty()) {
+            throw InvalidRunActionException(InvalidRunActionReason.NO_PENDING_REWARD)
+        }
+        if (action.relicId !in state.pendingRewardRelicIds) {
+            throw InvalidRunActionException(InvalidRunActionReason.REWARD_NOT_OFFERED)
+        }
+
+        return RunActionResult(
+            state =
+                state.copy(
+                    ownedRelicIds = state.ownedRelicIds + action.relicId,
+                    pendingRewardRelicIds = emptyList(),
+                ),
+            events = listOf(RunEvent.RewardSelected(action.relicId)),
+        )
+    }
+
     private fun endRun(
         state: RunState,
         status: RunStatus,
@@ -112,4 +178,6 @@ object RunEngine {
 
     private fun requireActiveRun(state: RunState?): RunState =
         state ?: throw InvalidRunActionException(InvalidRunActionReason.RUN_NOT_STARTED)
+
+    private const val REWARD_CHOICE_COUNT = 3
 }

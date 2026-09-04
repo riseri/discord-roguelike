@@ -4,6 +4,7 @@ import dev.riseri.core.combat.CombatState
 import dev.riseri.core.combat.CombatStatus
 import dev.riseri.core.combat.HitPoints
 import dev.riseri.core.random.nextDeterministicInt
+import dev.riseri.core.relic.RelicContentId
 
 @JvmInline
 value class RunSeed(
@@ -16,15 +17,6 @@ value class RoomId(
 ) {
     init {
         require(value.isNotBlank()) { "Room identifier must not be blank" }
-    }
-}
-
-@JvmInline
-value class RelicId(
-    val value: String,
-) {
-    init {
-        require(value.isNotBlank()) { "Relic identifier must not be blank" }
     }
 }
 
@@ -58,7 +50,8 @@ data class RunState(
     val dungeonGraph: DungeonGraph,
     val currentRoomId: RoomId,
     val completedRoomIds: Set<RoomId>,
-    val ownedRelicIds: Set<RelicId>,
+    val ownedRelicIds: Set<RelicContentId>,
+    val pendingRewardRelicIds: List<RelicContentId>,
     val rngState: RunRngState,
     val activeCombat: CombatState? = null,
 ) {
@@ -72,6 +65,12 @@ data class RunState(
         }
         require(completedRoomIds.all { it in dungeonGraph.rooms }) {
             "Completed rooms must exist in the dungeon graph"
+        }
+        require(pendingRewardRelicIds.distinct().size == pendingRewardRelicIds.size) {
+            "Pending reward choices must not contain duplicate relics"
+        }
+        require(pendingRewardRelicIds.none(ownedRelicIds::contains)) {
+            "Pending reward choices must not contain owned relics"
         }
         activeCombat?.let { combat ->
             require(combat.player.currentHp == playerHp && combat.player.maxHp == playerMaxHp) {
@@ -107,6 +106,7 @@ data class RunState(
                 currentRoomId = generatedDungeon.graph.startRoomId,
                 completedRoomIds = emptySet(),
                 ownedRelicIds = emptySet(),
+                pendingRewardRelicIds = emptyList(),
                 rngState = generatedDungeon.nextRngState,
             )
         }

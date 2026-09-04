@@ -1,5 +1,7 @@
 package dev.riseri.core.run
 
+import dev.riseri.core.relic.RelicContentId
+
 data class RunActionResult(
     val state: RunState,
     // Events remain in transition order so callers never need to infer lifecycle changes.
@@ -17,6 +19,14 @@ sealed interface RunEvent {
 
     data class RoomChosen(
         val roomId: RoomId,
+    ) : RunEvent
+
+    data class RewardOffered(
+        val relicIds: List<RelicContentId>,
+    ) : RunEvent
+
+    data class RewardSelected(
+        val relicId: RelicContentId,
     ) : RunEvent
 
     data object RunWon : RunEvent

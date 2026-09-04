@@ -7,6 +7,7 @@ import dev.riseri.core.combat.CombatStatus
 import dev.riseri.core.combat.EntityId
 import dev.riseri.core.combat.HitPoints
 import dev.riseri.core.combat.PlayerCombatState
+import dev.riseri.core.relic.RelicContentId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -37,6 +38,7 @@ class RunStateTest {
         assertEquals(RoomId("start"), state.currentRoomId)
         assertTrue(state.completedRoomIds.isEmpty())
         assertTrue(state.ownedRelicIds.isEmpty())
+        assertTrue(state.pendingRewardRelicIds.isEmpty())
     }
 
     @Test
@@ -55,11 +57,11 @@ class RunStateTest {
         val state =
             runState(
                 completedRoomIds = setOf(RoomId("start"), RoomId("event")),
-                ownedRelicIds = setOf(RelicId("iron-bulwark")),
+                ownedRelicIds = setOf(RelicContentId("iron-bulwark")),
             )
 
         assertEquals(setOf(RoomId("start"), RoomId("event")), state.completedRoomIds)
-        assertEquals(setOf(RelicId("iron-bulwark")), state.ownedRelicIds)
+        assertEquals(setOf(RelicContentId("iron-bulwark")), state.ownedRelicIds)
     }
 
     @Test
@@ -77,9 +79,8 @@ class RunStateTest {
     }
 
     @Test
-    fun `rejects blank room and relic identifiers`() {
+    fun `rejects blank room identifiers`() {
         assertFailsWith<IllegalArgumentException> { RoomId(" ") }
-        assertFailsWith<IllegalArgumentException> { RelicId("") }
     }
 
     @Test
@@ -128,7 +129,7 @@ class RunStateTest {
         playerHp: HitPoints = HitPoints(100),
         playerMaxHp: HitPoints = HitPoints(100),
         completedRoomIds: Set<RoomId> = emptySet(),
-        ownedRelicIds: Set<RelicId> = emptySet(),
+        ownedRelicIds: Set<RelicContentId> = emptySet(),
     ): RunState {
         val graph = DungeonGenerator.generate(RunSeed(42)).graph
         return RunState(
@@ -140,6 +141,7 @@ class RunStateTest {
             currentRoomId = graph.startRoomId,
             completedRoomIds = completedRoomIds,
             ownedRelicIds = ownedRelicIds,
+            pendingRewardRelicIds = emptyList(),
             rngState = RunRngState(99),
         )
     }

@@ -1,0 +1,34 @@
+{
+  "relics": [
+    {
+      "id": "iron-bulwark",
+      "name": "Iron Bulwark",
+      "description": "Guard grants 5 additional Block."
+    },
+    {
+      "id": "spiked-armor",
+      "name": "Spiked Armor",
+      "description": "When Block absorbs adjacent melee damage, deal 4 damage to the attacker."
+    },
+    {
+      "id": "berserkers-ring",
+      "name": "Berserker's Ring",
+      "description": "Slash deals 5 additional damage while below 40% health."
+    },
+    {
+      "id": "executioners-mark",
+      "name": "Executioner's Mark",
+      "description": "Execute deals its bonus damage to targets below 35% health."
+    },
+    {
+      "id": "heavy-gauntlets",
+      "name": "Heavy Gauntlets",
+      "description": "Shield Bash deals 5 additional damage."
+    },
+    {
+      "id": "vitality-charm",
+      "name": "Vitality Charm",
+      "description": "Increase maximum health by 15."
+    }
+  ]
+}
